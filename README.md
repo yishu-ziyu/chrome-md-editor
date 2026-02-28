@@ -20,14 +20,13 @@ A clean, efficient, and locally-hosted Markdown editor extension for Google Chro
 
 ### Installation
 
-1. Clone or download this repository.
-2. Run `npm install` to install dependencies.
-3. Run `npm run build` to build the extension into the `dist/` directory.
-4. Open Chrome and navigate to `chrome://extensions/`.
-5. Enable **Developer mode** in the top right corner.
-6. Click **Load unpacked** and select the `dist/` directory inside this project.
-7. **Important:** Click on the "Details" button of the extension and enable **"Allow access to file URLs"**. This is required for drag-and-drop file opening.
-8. Click the extension icon in your toolbar to start, or simply drag a `.md` file into your browser.
+1. Download the latest `chrome-md-editor.zip` from the [Releases](https://github.com/yishu-ziyu/chrome-md-editor/releases) page.
+2. Extract the downloaded ZIP file.
+3. Open Chrome and navigate to `chrome://extensions/`.
+4. Enable **Developer mode** in the top right corner.
+5. Click **Load unpacked** and select the extracted `dist` directory.
+6. **Important:** Click on the "Details" button of the extension and enable **"Allow access to file URLs"**. This is required for drag-and-drop file opening.
+7. Click the extension icon in your toolbar to start, or simply drag a `.md` file into your browser.
 
 ### Development
 
@@ -51,14 +50,13 @@ A clean, efficient, and locally-hosted Markdown editor extension for Google Chro
 
 ### 安装步骤
 
-1. 克隆或下载本项目源码。
-2. 在项目根目录运行 `npm install` 安装依赖。
-3. 运行 `npm run build` 进行打包，产物将生成在 `dist/` 目录下。
-4. 打开 Chrome 浏览器，访问 `chrome://extensions/` 设置页面。
-5. 开启右上角的 **“开发者模式”**。
-6. 点击 **“加载已解压的扩展程序”**，然后选择本项目的 `dist/` 文件夹。
-7. **⚠️ 重要：** 在扩展列表中找到 Markdown Editor，点击“详细信息”，并开启 **“允许访问文件网址”**（这是拖拽本地文件自动打开功能的前提）。
-8. 点击浏览器工具栏的扩展图标即可启动，或者直接将本地 `.md` 文件拖入浏览器窗口。
+1. 前往 [Releases](https://github.com/yishu-ziyu/chrome-md-editor/releases) 页面下载最新的 `chrome-md-editor.zip` 压缩包。
+2. 解压下载的 ZIP 文件，获得 `dist` 文件夹。
+3. 打开 Chrome 浏览器，访问 `chrome://extensions/` 设置页面。
+4. 开启右上角的 **“开发者模式”**。
+5. 点击 **“加载已解压的扩展程序”**，然后选择刚才解压出来的 `dist` 文件夹。
+6. **⚠️ 重要：** 在扩展列表中找到 Markdown Editor，点击“详细信息”，并开启 **“允许访问文件网址”**（这是拖拽本地文件自动打开功能的前提）。
+7. 点击浏览器工具栏的扩展图标即可启动，或者直接将本地 `.md` 文件拖入浏览器窗口。
 
 ### 本地开发
 
