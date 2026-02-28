@@ -1,0 +1,24 @@
+{
+  "name": "chrome-md-editor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.3.1",
+    "@codemirror/language-data": "^6.5.1",
+    "@codemirror/state": "^6.5.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.36.4",
+    "codemirror": "^6.0.1",
+    "markdown-it": "^14.1.0",
+    "mermaid": "^11.12.3"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0"
+  }
+}
