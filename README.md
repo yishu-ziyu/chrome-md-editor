@@ -1,5 +1,9 @@
 # Markdown Editor (Chrome Extension)
 
+![Markdown Editor Hero](./hero.png)
+
+🌟 **Welcome friends from Xiaohongshu (小红书) and sspai (少数派)!** If you find this extension helpful, please consider giving it a Star ⭐️
+
 A clean, efficient, and locally-hosted Markdown editor extension for Google Chrome. / 这是一个简洁、高效的且支持本地部署的 Markdown 编辑器 Chrome 扩展。
 
 [English](#english) | [中文说明](#%E4%B8%AD%E6%96%87%E8%AF%B4%E6%98%8E)
@@ -37,6 +41,8 @@ A clean, efficient, and locally-hosted Markdown editor extension for Google Chro
 ---
 
 ## 中文说明
+
+🌟 **欢迎来自 小红书 / 少数派 (sspai) 的朋友！** 如果你觉得这个项目提升了你的工作效率，欢迎在右上角给项目点个 Star ⭐️！也欢迎在评论区或 Issue 提出建议。
 
 ### 核心功能
 
