@@ -23,6 +23,7 @@ import {
   resolvePreviewImageSource,
   splitRelativePath,
 } from './image-support.js';
+import { resolvePreviewLinkClickTarget } from './link-support.js';
 
 // ==========================================
 // Mermaid 初始化
@@ -435,6 +436,38 @@ function initPreviewEditing() {
       syncPreviewToEditor();
     }, 500);
   });
+}
+
+function initPreviewLinkNavigation() {
+  const previewContainer = document.getElementById('previewContainer');
+
+  previewContainer.addEventListener('click', async (event) => {
+    const targetUrl = resolvePreviewLinkClickTarget(event.target, previewContainer, {
+      currentFileUrl,
+    });
+    if (!targetUrl) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    try {
+      await openPreviewLink(targetUrl);
+    } catch (err) {
+      showToast('打开链接失败: ' + err.message, 'error');
+    }
+  });
+}
+
+async function openPreviewLink(targetUrl) {
+  if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+    await chrome.tabs.create({ url: targetUrl });
+    return;
+  }
+
+  const opened = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    throw new Error('浏览器阻止了新标签页');
+  }
 }
 
 function syncPreviewToEditor() {
@@ -1430,6 +1463,7 @@ function init() {
 
   // 初始化预览区可编辑
   initPreviewEditing();
+  initPreviewLinkNavigation();
 
   // 初始化编辑区图片粘贴
   initPasteImageSupport();

@@ -505,6 +505,7 @@ body {
 
 .markdown-body a {
   color: var(--text-accent);
+  cursor: pointer;
   text-decoration: none;
   transition: color var(--transition-fast);
 }
@@ -962,4 +963,3 @@ body {
 .editor-main .sidebar-toggle.visible {
   display: flex;
 }
-
