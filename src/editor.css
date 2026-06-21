@@ -963,3 +963,119 @@ body {
 .editor-main .sidebar-toggle.visible {
   display: flex;
 }
+
+/* ==========================================
+   Onboarding Overlay
+   ========================================== */
+.onboarding-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+
+.onboarding-overlay.hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.onboarding-card {
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  padding: 48px 32px;
+}
+
+.onboarding-logo {
+  color: var(--text-accent);
+  margin-bottom: 16px;
+}
+
+.onboarding-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.onboarding-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 32px;
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboarding-action {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-hover);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms ease, border-color 150ms ease;
+  color: inherit;
+  font: inherit;
+}
+
+.onboarding-action:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-accent);
+}
+
+.onboarding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-accent);
+  flex-shrink: 0;
+}
+
+.onboarding-action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.onboarding-action-text strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.onboarding-action-text small {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.onboarding-tips {
+  margin-top: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.onboarding-tips kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-hover);
+  border-radius: 4px;
+  color: var(--text-secondary);
+}

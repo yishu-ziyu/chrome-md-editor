@@ -24,6 +24,8 @@ import {
   splitRelativePath,
 } from './image-support.js';
 import { resolvePreviewLinkClickTarget } from './link-support.js';
+import { showOnboarding, hideOnboarding } from './onboarding.js';
+import { initFeedbackButton } from './feedback.js';
 
 // ==========================================
 // Mermaid 初始化
@@ -1379,6 +1381,7 @@ async function openFileFromTree(fileHandle, filename, relativePath) {
     updateFilename(filename);
     markSaved();
     showToast(`已打开: ${filename}`, 'success');
+    hideOnboarding();
   } catch (err) {
     showToast('打开文件失败: ' + err.message, 'error');
   }
@@ -1471,6 +1474,23 @@ function init() {
   // 初始化文件浏览器侧边栏
   initFileSidebar();
 
+  // 初始化反馈按钮
+  initFeedbackButton();
+
+  // 监听 onboarding 自定义事件
+  document.addEventListener('onboarding:load-example', (e) => {
+    setEditorContent(e.detail.content);
+    updateFilename('示例文件.md');
+    markSaved();
+  });
+
+  document.addEventListener('onboarding:open-folder', () => {
+    handleOpenFolder();
+  });
+
+  // 显示新用户引导（无文件打开时）
+  showOnboarding();
+
   // 恢复视图模式
   setViewMode(currentViewMode);
 
@@ -1511,6 +1531,7 @@ async function loadPendingFile() {
     currentFileHandle = null; // file:// 打开无法获得 FileHandle
     markSaved();
     showToast(`已打开: ${pendingFile.filename}`, 'success');
+    hideOnboarding();
 
     // 清除 pending file
     await chrome.storage.local.remove('pendingFile');

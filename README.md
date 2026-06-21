@@ -2,6 +2,18 @@
 
 🌟 **Welcome friends from Xiaohongshu (小红书) and sspai (少数派)!** If you find this extension helpful, please consider giving it a Star ⭐️
 
+> **在浏览器里直接编辑本地 Markdown 文件，无需上传、无需服务器。**
+> Edit local Markdown files directly in Chrome — no upload, no server required.
+
+## 快速预览 / Quick Preview
+
+<!-- TODO: 在此处插入 demo GIF，展示扩展的核心使用流程。
+     建议格式：GIF 或 WebM，宽度 800px 左右，总时长 8-15 秒。
+     录制内容建议：拖入 .md 文件 → 侧边栏切换文件 → 粘贴图片 → 预览区直接编辑。
+     工具推荐：ScreenFlow / Kap / Chrome 内置录屏。 -->
+
+![Demo GIF coming soon](https://via.placeholder.com/800x450/1a1a2e/ffffff?text=Demo+GIF%3A+Drag+.md+file+%E2%86%92+Edit+%E2%86%92+Paste+image+%E2%86%92+Preview)
+
 A clean, efficient, and locally-hosted Markdown editor extension for Google Chrome. / 这是一个简洁、高效的且支持本地部署的 Markdown 编辑器 Chrome 扩展。
 
 [English](#english) | [中文说明](#%E4%B8%AD%E6%96%87%E8%AF%B4%E6%98%8E)
@@ -32,6 +44,16 @@ A clean, efficient, and locally-hosted Markdown editor extension for Google Chro
 6. **Important:** Click on the "Details" button of the extension and enable **"Allow access to file URLs"**. This is required for drag-and-drop file opening.
 7. Click the extension icon in your toolbar to start, or simply drag a `.md` file into your browser.
 
+> **安装指引图示 / Screenshot Guide**
+>
+> | 步骤 | 截图建议 / Screenshot suggestion |
+> |------|----------------------------------|
+> | Step 3-4: `chrome://extensions/` + Developer mode | 截图右上角 "Developer mode" 开关已开启的状态 |
+> | Step 5: Load unpacked | 截图左上角三个按钮（Load unpacked / Pack extension / Update），箭头指向 "Load unpacked" |
+> | Step 6: Allow access to file URLs | 截图扩展详情页，"Allow access to file URLs" 开关的位置 |
+>
+> *截图建议使用系统自带截图工具（macOS: `Cmd+Shift+4`），标注箭头或圆圈圈出关键按钮即可。*
+
 ### Development
 
 - Built with **CodeMirror 6**, **markdown-it**, and **Vite**.
@@ -43,6 +65,14 @@ A clean, efficient, and locally-hosted Markdown editor extension for Google Chro
 ## 中文说明
 
 🌟 **欢迎来自 小红书 / 少数派 (sspai) 的朋友！** 如果你觉得这个项目提升了你的工作效率，欢迎在右上角给项目点个 Star ⭐️！也欢迎在评论区或 Issue 提出建议。
+
+### 第一次使用 / Quick Start
+
+> 三步上手，无需任何配置。
+
+1. **拖入文件** — 将任意 `.md` 文件从 Finder 拖入 Chrome 浏览器窗口，编辑器自动打开。
+2. **打开文件夹** — 点击扩展图标，选择包含 Markdown 文件的本地文件夹，获得完整项目浏览能力。
+3. **开始编辑** — 左侧写源码，右侧实时预览；也可以直接在预览区点击编辑（WYSIWYG），改动自动同步。
 
 ### 核心功能
 
