@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 Format based on Keep a Changelog.
 Project uses Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- 大纲面板：侧边栏展示标题层级结构，点击跳转（工具栏大纲按钮展开）
+- 任务列表面板：聚合文档内 `- [ ]` 任务项，点击定位源码
+- 专注模式：淡化非当前行，降低干扰
+- 打字机滚动：光标行自动居中
+- 查找 / 替换：`Ctrl+F` 在编辑器内调用自绘查找替换面板
+- 样式工具栏（重新设计，图标化、不刺眼）：居中 / 加粗 / 高亮 / 颜色 / 字号，可组合嵌套
+- 代码补全：代码块语言提示与括号自动补全
+- 自动配对：引号、括号自动配对与智能包裹
+- Mermaid 增强：预览区图表支持缩放 / 平移 / 全屏
+- Base64 折叠：内联 Base64 图片可折叠，长文档更清爽
+- HTML 粘贴转 Markdown：粘贴网页内容自动转换为 Markdown 源
+- 滚动恢复：重新打开时恢复预览滚动位置
+- Callout 卡片：支持 `> [!NOTE]` / `[!TIP]` / `[!WARNING]` / `[!CAUTION]` 提示卡片渲染
+- 预览区回写缺陷修复（BUG-1/2/3）：中文符号配对、弹窗溢出、三类回写修正
+- 预览安全加固：渲染输出经 DOMPurify 清洗，降低 XSS 风险
+
+### Notes
+
+- 以上为来自 fork（zhangweildlh/chrome-md-editor）的 Chrome 侧功能贡献，已剥离 Tauri 桌面壳相关代码，纯扩展侧可独立构建运行
+
 ## [1.4.2] - 2026-07-14
 
 ### Added

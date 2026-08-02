@@ -46,6 +46,11 @@
   --toolbar-height: 48px;
   --statusbar-height: 28px;
   --panel-header-height: 32px;
+
+  /* A-8 显示设置：编辑器 / 预览独立字号 + 界面密度 */
+  --editor-font-size: 14px;
+  --preview-font-size: 15px;
+  --ui-gap: 8px;
 }
 
 [data-theme="light"] {
@@ -121,7 +126,7 @@ body {
   padding: 0 12px;
   background: var(--bg-toolbar);
   border-bottom: 1px solid var(--border-primary);
-  gap: 8px;
+  gap: var(--ui-gap);
   flex-shrink: 0;
   user-select: none;
   z-index: 10;
@@ -269,6 +274,76 @@ body {
 
 /* 文字型工具栏按钮（居中/高亮/字号）允许自适应宽度 */
 
+/* 样式工具栏：与既有按钮分隔的包裹容器（弹窗定位锚点） */
+.tb-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* 样式工具栏弹窗（颜色 / 字号 / 显示设置），复用主题变量，深浅主题一致 */
+.style-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  /* 锚到按钮右侧：避免「显示设置」按钮位于工具栏最右侧时弹窗向左溢出屏幕 */
+  right: 0;
+  z-index: 50;
+  min-width: 140px;
+  /* 限制弹窗宽度，防止内容撑开后超出窗口/屏幕边界（特别是显示设置含三个字段时） */
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.style-popover[hidden] {
+  display: none;
+}
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.fs-option {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.fs-option:hover {
+  background: var(--bg-hover);
+}
+
+/* 弹窗中「上次选择」高亮，强化记忆上次选择的反馈 */
+.swatch.selected {
+  outline: 2px solid #58a6ff;
+  outline-offset: 1px;
+}
+.fs-option.selected {
+  background: #58a6ff;
+  color: #fff;
+}
 
 /* 字号下拉菜单 */
 
@@ -326,7 +401,7 @@ body {
 .editor-container .cm-editor {
   height: 100%;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--editor-font-size);
   line-height: 1.6;
 }
 
@@ -474,7 +549,7 @@ body {
 .markdown-body {
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--preview-font-size);
   line-height: 1.7;
   word-wrap: break-word;
 }
@@ -1455,4 +1530,429 @@ body {
 .onboarding-secondary:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* ==========================================
+   Print Styles — 修复「多页只打印光标所在一屏」BUG
+   根因：html/body 与各容器被锁死为「固定一屏高 + 内部滚动」，
+        打印时浏览器只输出可视区那一屏内容。
+   修复：打印时解锁高度与滚动，让 Markdown 内容自然流动，
+        由浏览器按用户在打印对话框里设定的纸张/页边距自动分页
+        （内容需要多少页就实实在在打多少页）。
+   仅作用于打印（@media print），对屏幕显示零影响、零副作用。
+   ========================================== */
+@media print {
+  /* 1) 解锁最外层高度与滚动，允许内容铺满多页 */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body {
+    display: block !important;
+  }
+
+  /* 2) 解锁主编辑区与各面板容器（高度自适应、滚动可见、铺平） */
+  .editor-main,
+  .editor-panel,
+  .preview-panel,
+  .preview-container {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
+  .preview-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    border: none !important;
+    width: 100% !important;
+  }
+
+  .preview-container {
+    display: block !important;
+  }
+
+  /* 预览面板已在上方全局强制 display:flex !important，
+     编辑器面板已在下方隐藏列表强制 display:none !important，
+     故无需再按视图模式单独覆盖（避免误把源码编辑器也打印出来）。 */
+
+  /* 3) 隐藏所有非内容 UI，只保留预览区正文 */
+  .toolbar,
+  .statusbar,
+  .file-sidebar,
+  .editor-panel,
+  .resizer,
+  .sidebar-toggle,
+  .panel-header,
+  .onboarding-overlay,
+  .modal-overlay,
+  .toast,
+  .preview-context-menu {
+    display: none !important;
+  }
+
+  /* 4) 强制浅色主题（黑字白底），避免深色背景打印到白纸不可读 */
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #ffffff;
+    --bg-toolbar: #ffffff;
+    --bg-statusbar: #ffffff;
+    --bg-panel-header: #ffffff;
+    --bg-hover: #ffffff;
+    --bg-active: #ffffff;
+    --border-primary: #d0d7de;
+    --border-subtle: #e8eaed;
+    --text-primary: #1f2328;
+    --text-secondary: #57606a;
+    --text-muted: #6e7781;
+    --text-accent: #0969da;
+    --accent: #0969da;
+    --accent-glow: rgba(9, 105, 218, 0.1);
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+  }
+
+  .preview-container,
+  .markdown-body {
+    background: #ffffff !important;
+    color: #1f2328 !important;
+  }
+
+  /* 5) 代码块/表格/图片 不被裁剪；超长代码行自动换行 */
+  .markdown-body pre {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    background: #f6f8fa !important;
+  }
+
+  .markdown-body pre code {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+  }
+
+  .markdown-body code {
+    background: #f6f8fa !important;
+  }
+
+  /* 6) 避免关键元素在分页处被切断 */
+  .markdown-body pre,
+  .markdown-body table,
+  .markdown-body img,
+  .markdown-body svg,
+  .markdown-body blockquote,
+  .markdown-body tr,
+  .mermaid-diagram {
+    page-break-inside: avoid !important;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4,
+  .markdown-body h5,
+  .markdown-body h6 {
+    page-break-after: avoid !important;
+  }
+
+  .markdown-body table th,
+  .markdown-body table td {
+    border: 1px solid #d0d7de !important;
+  }
+
+  /* 7) 不锁定纸张尺寸与页边距，完全交还用户在打印对话框里的设定
+        size: auto = 采用对话框所选 A4/Letter；
+        不写 margin = 采用对话框所选页边距（由真实内容与设定决定页数） */
+  @page {
+    size: auto;
+  }
+}
+
+/* ==========================================
+   选中符号配对高亮（选中配对符号时高亮其另一半）
+   ========================================== */
+.cm-bracket-match-active {
+  background: rgba(63, 185, 80, 0.25);
+  border-bottom: 2px solid var(--accent, #3cb750);
+  border-radius: 2px;
+}
+
+/* ==========================================
+   A-8 专注模式：淡化非当前行
+   ========================================== */
+.focus-mode .cm-content .cm-line {
+  opacity: 0.35;
+  transition: opacity var(--transition-fast);
+}
+.focus-mode .cm-content .cm-line.cm-activeLine {
+  opacity: 1;
+}
+.focus-mode .cm-editor.cm-focused .cm-activeLine {
+  background: rgba(88, 166, 255, 0.06);
+}
+
+/* ==========================================
+   A-9 超长 Base64 行折叠装饰
+   ========================================== */
+.cm-base64-fold {
+  display: inline-block;
+  padding: 1px 8px;
+  margin: 1px 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.cm-base64-fold:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ==========================================
+   A-7 Callout 提示框
+   ========================================== */
+.callout {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--callout-color, var(--accent));
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: color-mix(in srgb, var(--callout-color, var(--accent)) 12%, var(--bg-secondary));
+}
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--callout-color, var(--accent));
+  margin-bottom: 6px;
+}
+.callout-title::before {
+  content: var(--callout-icon, "ℹ");
+  font-size: 14px;
+  line-height: 1;
+}
+.callout > :last-child {
+  margin-bottom: 0;
+}
+/* 各类型配色与图标（中文显示名由 JS 注入到 .callout-name） */
+.callout-note { --callout-color: #58a6ff; --callout-icon: "ℹ"; }
+.callout-tip { --callout-color: #3fb950; --callout-icon: "💡"; }
+.callout-important { --callout-color: #d29922; --callout-icon: "⭐"; }
+.callout-warning { --callout-color: #e3b341; --callout-icon: "⚠"; }
+.callout-caution { --callout-color: #f85149; --callout-icon: "🔥"; }
+.callout-info { --callout-color: #58a6ff; --callout-icon: "ℹ"; }
+.callout-question { --callout-color: #bc8cff; --callout-icon: "?"; }
+.callout-success { --callout-color: #3fb950; --callout-icon: "✓"; }
+.callout-failure { --callout-color: #f85149; --callout-icon: "✕"; }
+.callout-danger { --callout-color: #f85149; --callout-icon: "⚠"; }
+.callout-bug { --callout-color: #f85149; --callout-icon: "🐞"; }
+.callout-example { --callout-color: #58a6ff; --callout-icon: "例"; }
+.callout-quote { --callout-color: #8b949e; --callout-icon: "❝"; }
+.callout-abstract,
+.callout-summary,
+.callout-tldr { --callout-color: #58a6ff; --callout-icon: "≡"; }
+
+/* ==========================================
+   A-3 / A-12 侧边浮动面板（大纲 / 任务）
+   ========================================== */
+.side-panel {
+  position: fixed;
+  top: calc(var(--toolbar-height) + 8px);
+  right: 12px;
+  width: 280px;
+  max-height: calc(100vh - var(--toolbar-height) - var(--statusbar-height) - 24px);
+  display: none;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 500;
+  overflow: hidden;
+}
+.side-panel.open {
+  display: flex;
+}
+.side-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--panel-header-height);
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--bg-panel-header);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.side-panel-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+.side-panel-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.side-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+.panel-empty {
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+/* 大纲项 */
+.outline-item {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.outline-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.outline-level-1 { font-weight: 600; color: var(--text-primary); padding-left: 8px; }
+.outline-level-2 { padding-left: 20px; }
+.outline-level-3 { padding-left: 32px; }
+.outline-level-4 { padding-left: 44px; font-size: 12px; }
+.outline-level-5 { padding-left: 56px; font-size: 12px; }
+.outline-level-6 { padding-left: 68px; font-size: 12px; }
+/* 任务项 */
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.task-item:hover {
+  background: var(--bg-hover);
+}
+.task-item.checked .task-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.task-text {
+  line-height: 1.5;
+}
+
+/* ==========================================
+   A-10 Mermaid 全屏缩放 / 平移
+   ========================================== */
+.mermaid-diagram {
+  position: relative;
+}
+.mermaid-zoom-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: 5;
+}
+.mermaid-diagram:hover .mermaid-zoom-btn {
+  opacity: 1;
+}
+.mermaid-zoom-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.mermaid-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.82);
+}
+.mermaid-zoom-overlay[hidden] {
+  display: none !important;
+}
+.mz-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+.mz-btn {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+}
+.mz-btn:hover {
+  background: var(--bg-hover);
+}
+.mz-zoom-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  min-width: 44px;
+  text-align: center;
+}
+.mz-stage {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+.mz-panning .mz-stage {
+  cursor: grabbing;
+}
+.mz-canvas {
+  transform-origin: center center;
+  will-change: transform;
+}
+.mz-canvas svg {
+  max-width: none;
+  height: auto;
 }

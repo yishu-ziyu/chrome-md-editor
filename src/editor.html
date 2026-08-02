@@ -134,6 +134,57 @@
 
         <div class="toolbar-divider"></div>
 
+        <!-- 样式工具栏：居中 / 加粗 / 高亮 / 颜色 / 字号（独立生效、可组合嵌套，降低 Markdown 语法门槛） -->
+        <div class="toolbar-group style-toolbar-group">
+          <button class="toolbar-btn" id="btnStyleCenter" title="居中（插入 <center>…</center>）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <button class="toolbar-btn" id="btnStyleBold" title="加粗（插入 <b>…</b>）"><b>B</b></button>
+          <button class="toolbar-btn" id="btnStyleHighlight" title="高亮（插入 <mark>…</mark>）"><mark style="padding:0 3px;border-radius:2px">A</mark></button>
+          <div class="tb-wrap">
+            <button class="toolbar-btn" id="btnColor" title="文字颜色（插入 <font color>…</font>）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9" />
+                <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            <div class="style-popover" id="colorPopover" hidden>
+              <div class="swatch-grid">
+                <button class="swatch" data-color="red" style="background:#e5484d" title="红"></button>
+                <button class="swatch" data-color="orange" style="background:#d29922" title="橙"></button>
+                <button class="swatch" data-color="yellow" style="background:#e3b341" title="黄"></button>
+                <button class="swatch" data-color="green" style="background:#3fb950" title="绿"></button>
+                <button class="swatch" data-color="blue" style="background:#58a6ff" title="蓝"></button>
+                <button class="swatch" data-color="purple" style="background:#bc8cff" title="紫"></button>
+                <button class="swatch" data-color="black" style="background:#1f2328" title="黑"></button>
+                <button class="swatch" data-color="gray" style="background:#8b949e" title="灰"></button>
+              </div>
+            </div>
+          </div>
+          <div class="tb-wrap">
+            <button class="toolbar-btn" id="btnFontSize" title="字号（插入 <font size>…</font>）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4,7 4,4 20,4 20,7" />
+                <line x1="12" y1="4" x2="12" y2="20" />
+                <line x1="9" y1="20" x2="15" y2="20" />
+              </svg>
+            </button>
+            <div class="style-popover" id="fontSizePopover" hidden>
+              <button class="fs-option" data-size="2">小</button>
+              <button class="fs-option" data-size="3">中（默认）</button>
+              <button class="fs-option" data-size="4">大</button>
+              <button class="fs-option" data-size="5">特大</button>
+              <button class="fs-option" data-size="6">极大</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
         <div class="toolbar-group">
           <button class="toolbar-btn" id="btnH1" title="一级标题">H1</button>
           <button class="toolbar-btn" id="btnH2" title="二级标题">H2</button>
@@ -273,7 +324,13 @@
       </div>
 
       <div class="toolbar-right">
-        
+        <button class="toolbar-btn" id="btnFind" title="查找 / 替换 (Ctrl+F)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </button>
+
         <button class="toolbar-btn" id="btnHelp" title="使用说明">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
@@ -388,6 +445,40 @@
               />
             </svg>
           </button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- A-3 / A-8 / A-12 视图增强：专注模式 / 打字机 / 大纲 / 任务 / 显示设置 -->
+        <div class="toolbar-group view-tools-group">
+          <button class="toolbar-btn" id="btnFocusMode" title="专注模式（淡化非当前行）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M2 12h4M18 12h4M12 2v4M12 18v4"/></svg>
+          </button>
+          <button class="toolbar-btn" id="btnTypewriter" title="打字机滚动（光标行居中）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 17h6M7 17v2h10v-2"/></svg>
+          </button>
+          <button class="toolbar-btn" id="btnOutline" title="大纲面板">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button class="toolbar-btn" id="btnTasks" title="任务列表面板">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </button>
+          <div class="tb-wrap">
+            <button class="toolbar-btn" id="btnDisplaySettings" title="显示设置（字号 / 密度）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+            </button>
+            <div class="style-popover" id="displaySettingsPopover" hidden>
+              <label class="modal-field"><span>编辑器字号</span><input type="number" id="dsEditorFont" min="10" max="32" step="1" /></label>
+              <label class="modal-field"><span>预览字号</span><input type="number" id="dsPreviewFont" min="12" max="40" step="1" /></label>
+              <label class="modal-field"><span>界面密度</span>
+                <select id="dsDensity">
+                  <option value="compact">紧凑</option>
+                  <option value="standard">标准</option>
+                  <option value="comfortable">宽松</option>
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div class="toolbar-divider"></div>
@@ -565,6 +656,24 @@
       </div>
     </main>
 
+    <!-- A-3 大纲面板（浮动抽屉，点击工具栏大纲按钮展开） -->
+    <aside class="side-panel" id="outlinePanel">
+      <div class="side-panel-header">
+        <span>大纲</span>
+        <button class="side-panel-close" id="outlineClose" title="关闭">✕</button>
+      </div>
+      <div class="side-panel-body" id="outlineList"></div>
+    </aside>
+
+    <!-- A-12 任务列表面板（浮动抽屉，点击工具栏任务按钮展开） -->
+    <aside class="side-panel" id="taskListPanel">
+      <div class="side-panel-header">
+        <span>任务</span>
+        <button class="side-panel-close" id="taskClose" title="关闭">✕</button>
+      </div>
+      <div class="side-panel-body" id="taskList"></div>
+    </aside>
+
     <!-- 底部状态栏 -->
     <footer class="statusbar" id="statusbar">
       <div class="statusbar-left">
@@ -580,5 +689,9 @@
     </footer>
 
     <script type="module" src="./editor.js"></script>
+    <!-- 注意：desktop-shims.js 已在 src/editor.js 顶部通过 ES Module import 引入，
+         避免在此处再用 <script> 标签重复加载（vite 会把 HTML 里的外部脚本标签当
+         未被引用的 asset 静默删除，所以唯一可靠的方式在 editor.js 里 import） -->
+
   </body>
 </html>

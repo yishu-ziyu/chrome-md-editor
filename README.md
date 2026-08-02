@@ -49,6 +49,19 @@
 | 主题 | 深色 / 浅色 |
 | 会话恢复 | 再次打开扩展时尽量恢复上次内容与文件名 |
 | 阅读翻译 | 预览区中英对照；**不修改** Markdown 源文件 |
+| 大纲面板 | 侧边栏展示标题层级，点击跳转对应位置 |
+| 任务列表 | 聚合 `- [ ]` 任务项，点击定位到源码 |
+| 专注模式 | 淡化非当前行，减少干扰 |
+| 打字机滚动 | 光标所在行自动保持在视图中央 |
+| 查找替换 | 编辑器内 `Ctrl+F` 调用查找 / 替换面板 |
+| 样式工具栏 | 居中 / 加粗 / 高亮 / 颜色 / 字号（图标化，不刺眼） |
+| 代码补全 | 代码块语言提示与括号自动补全 |
+| 自动配对 | 引号、括号自动配对与智能包裹 |
+| Mermaid 增强 | 预览区图表支持缩放 / 平移 / 全屏 |
+| Base64 折叠 | 内联 Base64 图片可折叠，长文档更清爽 |
+| HTML 粘贴 | 粘贴网页内容自动转换为 Markdown |
+| 滚动恢复 | 重新打开时恢复预览滚动位置 |
+| Callout 卡片 | 支持 `> [!NOTE]` 等提示卡片渲染 |
 
 技术栈：CodeMirror 6 · markdown-it · Vite · Manifest V3。
 
@@ -174,6 +187,10 @@ The toolbar should show the release version (currently **v1.4.2**).
 - Split / editor / preview layouts, light & dark themes
 - Preview WYSIWYG sync, Mermaid, local images, paste screenshot
 - Optional reading translation (bilingual preview; source file unchanged)
+- Outline / task panels, focus mode, typewriter scroll
+- In-editor find & replace (Ctrl+F)
+- Style toolbar (center/bold/highlight/color/size), code completion, auto-pair
+- Mermaid zoom/pan, Base64 image folding, HTML paste-to-Markdown, scroll restore, Callout cards
 
 ### Develop
 
