@@ -10,7 +10,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { oneDark } from '@codemirror/theme-one-dark';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
 import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { search, searchKeymap, highlightSelectionMatches, openSearchPanel, setSearchQuery, closeSearchPanel, replaceNext, replaceAll, selectMatches, SearchQuery } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
@@ -28,6 +28,8 @@ import { showOnboarding, hideOnboarding } from './onboarding.js';
 import { initFeedbackButton } from './feedback.js';
 import { rememberLastFile, loadLastFile } from './session-restore.js';
 import { htmlToMarkdown } from './html-to-markdown.js';
+import { makeSearchPanel } from './search-panel.js';
+import { scheduleAutosave, initAutosave, listSnapshots, restoreSnapshot, offerDraftRestore } from './autosave.js';
 import { newInstanceId, pendingFileStorageKey } from './instance-id.js';
 import {
   selectionInsideRoot,
@@ -248,6 +250,7 @@ graph LR
     crosshairCursor(),
     highlightActiveLine(),
     highlightSelectionMatches(),
+    search({ createPanel: makeSearchPanel }),
     keymap.of([
       ...closeBracketsKeymap,
       ...defaultKeymap,
@@ -275,6 +278,7 @@ graph LR
         updatePreview();
         updateStatus();
         markModified();
+        scheduleAutosave();
       }
       if (update.selectionSet) {
         updateCursorStatus();
@@ -1490,6 +1494,17 @@ function bindEvents() {
   document.getElementById('btnStrike').addEventListener('click', () => wrapSelection('~~', '~~'));
   document.getElementById('btnCode').addEventListener('click', () => wrapSelection('`', '`'));
 
+  // A-5：快照 / 历史版本入口
+  const btnSnapshots = document.getElementById('btnSnapshots');
+  if (btnSnapshots) btnSnapshots.addEventListener('click', () => openSnapshotsDialog());
+  const snapshotsDialog = document.getElementById('snapshotsDialog');
+  const snapshotsClose = document.getElementById('snapshotsClose');
+  if (snapshotsClose) snapshotsClose.addEventListener('click', () => { if (snapshotsDialog) snapshotsDialog.hidden = true; });
+  if (snapshotsDialog) {
+    snapshotsDialog.addEventListener('click', (e) => { if (e.target === snapshotsDialog) snapshotsDialog.hidden = true; });
+    snapshotsDialog.addEventListener('keydown', (e) => { if (e.key === 'Escape') snapshotsDialog.hidden = true; });
+  }
+
   // 高亮：优先作用在右侧预览选区；无选区时退回源码选区包 <mark>
   const btnHighlight = document.getElementById('btnHighlight');
   if (btnHighlight) {
@@ -1625,35 +1640,53 @@ function bindEvents() {
   });
 }
 
+const FORMATTING_SELECTOR = [
+  'a[href]', 'img', 'b', 'strong', 'i', 'em', 'code', 'pre', 'blockquote',
+  'ul', 'ol', 'li', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 's', 'del', 'strike',
+].join(',');
+
+function hasRichMarkdownFormatting(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return !!doc.body.querySelector(FORMATTING_SELECTOR);
+  } catch { return false; }
+}
+
 function initPasteImageSupport() {
   editor.contentDOM.addEventListener('paste', async (event) => {
-    const items = Array.from(event.clipboardData?.items || []);
-    const imageItem = items.find((item) => item.type.startsWith('image/'));
+    const cd = event.clipboardData;
+    if (!cd) return;
 
-    if (!imageItem) return;
-
-    const file = imageItem.getAsFile();
-    if (!file) return;
-
-    event.preventDefault();
-
-    try {
-      const { imagePath, storageMode } = await persistPastedImage(file);
-      const markdown = buildPastedImageMarkdown({
-        alt: 'pasted-image',
-        imagePath,
-      });
-
-      insertMarkdownSnippet(markdown);
-
-      if (storageMode === 'file') {
-        showToast(`图片已保存并插入: ${imagePath}`, 'success');
-      } else {
-        showToast('图片已以内嵌 data URL 插入 Markdown', 'success');
+    // —— 1) 图片优先（保持原有全部逻辑）——
+    const items = Array.from(cd.items || []);
+    const imageItem = items.find((it) => it.type.startsWith('image/'));
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      if (file) {
+        event.preventDefault();
+        try {
+          const { imagePath, storageMode } = await persistPastedImage(file);
+          insertMarkdownSnippet(buildPastedImageMarkdown({ alt: 'pasted-image', imagePath }));
+          showToast(storageMode === 'file'
+            ? `图片已保存并插入: ${imagePath}` : '图片已以内嵌 data URL 插入 Markdown', 'success');
+        } catch (err) { showToast('粘贴图片失败: ' + err.message, 'error'); }
       }
-    } catch (err) {
-      showToast('粘贴图片失败: ' + err.message, 'error');
+      return;
     }
+
+    // —— 2) 富文本 HTML → Markdown（A-4 新增）——
+    const html = cd.getData('text/html');
+    if (html && hasRichMarkdownFormatting(html)) {
+      const md = htmlToMarkdown(html);
+      const plain = (cd.getData('text/plain') || '').trim();
+      // 仅当转换结果确实比纯文本多了结构化内容时才拦截，避免破坏纯文本粘贴手感
+      if (md && md.trim() && md.trim() !== plain) {
+        event.preventDefault();
+        insertMarkdownSnippet(md);
+        return;
+      }
+    }
+    // —— 3) 其余（纯文本等）放行默认粘贴 ——
   });
 }
 
@@ -1970,6 +2003,61 @@ function initFileSidebar() {
     toggleSidebar(true);
   }
 }
+// A-5：打开快照 / 历史版本对话框，列出当前文件的快照环，支持回滚
+async function openSnapshotsDialog() {
+  const dialog = document.getElementById('snapshotsDialog');
+  const list = document.getElementById('snapshotsList');
+  if (!dialog || !list) return;
+  list.innerHTML = '';
+  const snapshots = await listSnapshots();
+  if (!snapshots.length) {
+    const empty = document.createElement('p');
+    empty.className = 'snapshots-empty';
+    empty.textContent = '暂无快照。编辑停顿后会自动保存草稿；每隔一段时间或累计一定改动会生成历史快照。';
+    list.appendChild(empty);
+  } else {
+    snapshots.forEach((snap) => {
+      const item = document.createElement('div');
+      item.className = 'snapshots-item';
+
+      const meta = document.createElement('div');
+      meta.className = 'snapshots-meta';
+      meta.textContent = `${new Date(snap.timestamp).toLocaleString()} · ${snap.content.length} 字符`;
+
+      const preview = document.createElement('div');
+      preview.className = 'snapshots-preview';
+      preview.textContent = snap.preview || '(空)';
+
+      const actions = document.createElement('div');
+      actions.className = 'snapshots-actions';
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'modal-btn modal-btn-primary';
+      restoreBtn.textContent = '恢复此版本';
+      restoreBtn.addEventListener('click', async () => {
+        if (window.confirm('恢复此快照将覆盖当前编辑区内容（不会自动写入磁盘文件）。是否继续？')) {
+          const ok = await restoreSnapshot(snap.id);
+          if (ok) {
+            dialog.hidden = true;
+            showToast('已恢复到所选历史版本', 'success');
+          }
+        }
+      });
+      actions.appendChild(restoreBtn);
+
+      item.appendChild(meta);
+      item.appendChild(preview);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+  dialog.hidden = false;
+}
+
+function closeSnapshotsDialog() {
+  const dialog = document.getElementById('snapshotsDialog');
+  if (dialog) dialog.hidden = true;
+}
+
 function init() {
   // Stamp version so we can confirm Chrome loaded the new package
   document.documentElement.dataset.appVersion = APP_VERSION;
@@ -1992,6 +2080,11 @@ function init() {
 
   // 创建编辑器
   createEditor();
+
+  // A-5：初始化自动保存上下文（注入 editor 实例与文件唯一键解析器）
+  initAutosave({ editor, getFileId: () => currentFileHandle?.name || 'unsaved' });
+  // A-5：启动后若发现未保存草稿，提示恢复（异步，不阻塞初始化）
+  offerDraftRestore().catch((e) => console.error('[autosave] 草稿恢复检查失败', e));
 
   // 绑定事件
   bindEvents();

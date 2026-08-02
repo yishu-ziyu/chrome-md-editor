@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 Format based on Keep a Changelog.
 Project uses Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- 自绘中文查找/替换面板：Ctrl+F 打开，替代 CodeMirror 默认英文面板（命中计数 X/Y、全选匹配、替换下一个/全部）
+- 粘贴富文本自动转为 Markdown：从网页/富文本复制的内容粘贴时转为 Markdown，纯文本与图片粘贴行为不变
+- 自动保存与历史快照：编辑停顿防抖保存草稿；周期性生成历史快照环（最多保留 30 份），可一键回滚任意版本
+
 ## [1.4.2] - 2026-07-14
 
 ### Added

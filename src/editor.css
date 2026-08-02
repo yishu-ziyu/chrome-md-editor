@@ -1456,3 +1456,212 @@ body {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* ==========================================
+   自绘查找/替换面板（方案 A）
+   ========================================== */
+.md-search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+  z-index: 20;
+}
+
+.md-search-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.md-search-panel__input {
+  flex: 1 1 180px;
+  min-width: 140px;
+  height: 28px;
+  padding: 0 8px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+.md-search-panel__input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.md-search-panel__count {
+  min-width: 56px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: right;
+  user-select: none;
+}
+
+.md-search-panel__count.is-error {
+  color: var(--danger);
+}
+
+.md-search-panel__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.md-search-panel__btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.md-search-panel__btn.is-active {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.md-search-panel__btn.is-active:hover {
+  background: var(--accent-hover);
+}
+
+/* ===== 通用模态框基类（供快照对话框等复用） ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+.modal-overlay[hidden] { display: none; }
+
+.modal-card {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  padding: 20px;
+  width: min(560px, 92vw);
+}
+
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.modal-btn {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 13px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary, #21262d);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.modal-btn:hover { background: var(--bg-hover, #30363d); }
+
+.modal-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.modal-btn-primary:hover { background: var(--accent-hover); }
+
+.modal-btn-secondary {
+  background: var(--bg-secondary, #21262d);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+/* ===== A-5 快照 / 历史版本对话框 ===== */
+.modal-card--snapshots {
+  max-width: 560px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.snapshots-list {
+  margin: 12px 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.snapshots-empty {
+  color: var(--text-muted, #8b949e);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+
+.snapshots-item {
+  border: 1px solid var(--border-primary, #30363d);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated, var(--bg-toolbar, #161b22));
+}
+
+.snapshots-meta {
+  font-size: 12px;
+  color: var(--text-muted, #8b949e);
+  margin-bottom: 6px;
+}
+
+.snapshots-preview {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #e6edf3);
+  background: var(--bg-input, #0d1117);
+  border-radius: 6px;
+  padding: 6px 8px;
+  max-height: 3.2em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
+}
+
+.snapshots-actions {
+  display: flex;
+  justify-content: flex-end;
+}

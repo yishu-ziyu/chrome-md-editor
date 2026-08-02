@@ -281,6 +281,10 @@
             <line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
         </button>
+
+        <button class="toolbar-btn" id="btnSnapshots" title="快照 / 历史版本 (A-5)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        </button>
 <!-- 视图模式 -->
         <div class="toolbar-group view-mode-group">
           <button
@@ -564,6 +568,27 @@
         ></div>
       </div>
     </main>
+
+    <!-- A-5 快照 / 历史版本对话框（点击工具栏快照按钮展开） -->
+    <div class="modal-overlay" id="snapshotsDialog" hidden>
+      <div
+        class="modal-card modal-card--snapshots"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="snapshotsTitle"
+      >
+        <h2 class="modal-title" id="snapshotsTitle">历史快照</h2>
+        <p class="modal-desc">
+          编辑停顿后自动保存草稿；每隔一段时间或累计一定改动会生成历史快照。可回滚到任意版本（仅恢复编辑区内容，不影响磁盘文件，除非你主动保存）。
+        </p>
+        <div class="snapshots-list" id="snapshotsList"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-btn modal-btn-secondary" id="snapshotsClose">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 底部状态栏 -->
     <footer class="statusbar" id="statusbar">
