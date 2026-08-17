@@ -1,0 +1,1353 @@
+/* ==========================================
+   compare.css — 对比合并页主题样式
+   复用 editor.css 的 CSS 变量（--bg-* / --fg / --accent / --border-* 等），
+   布局与控件配色一律走既有变量，保证亮/暗主题自动适配。
+   例外：差异语义配色（新增 / 删除 / 移动）在下方集中定义为一组 --diff-* 变量，
+   因为 @codemirror/merge 与本项目自研的 diff 装饰模块都需要一个统一出口。
+   ========================================== */
+
+/* ==========================================
+   差异语义配色变量
+   ------------------------------------------
+   明暗切换依据：<html data-theme="light|dark">，由 theme-presets.js 的
+   applyEditorThemePreset() 按主题预设的 kind 写入（compare 页复用同一函数）。
+   注意不要改用 CodeMirror 的 &light/&dark —— 那是 EditorView.darkTheme facet
+   决定的，和本项目 23 套主题的明暗基底不是同一个开关。
+
+   变量分三组：
+   1) --diff-line-*   行级底色，覆盖 @codemirror/merge 的 changedLine/deletedChunk
+   2) --diff-word-*   字词级底色，由 src/compare/inline-word-diff.js 的
+                      wordDiffTheme 直接引用（变量名必须与该文件一致，勿改名）
+   3) --diff-move-bg  移动块底色，由 src/compare/move-decorations.js 的
+                      moveBlockTheme 直接引用（同上，勿改名）
+   ========================================== */
+:root {
+  /* —— 行级：删除 / 变更（浅红） ——
+     需求：@codemirror/merge 默认的红过深（行号槽为实色 #e43），
+     此处统一压到 12% 透明度，只做"淡淡一层"提示，不干扰正文阅读。 */
+  --diff-line-removed-bg: rgba(248, 81, 73, 0.12);
+  /* 行级：新增（浅绿），与浅红同量级，保证左右两侧观感对称 */
+  --diff-line-added-bg: rgba(63, 185, 80, 0.12);
+
+  /* —— 变更文字的底部下划条（库用 2px linear-gradient 实现） —— */
+  --diff-text-removed-underline: rgba(248, 81, 73, 0.5);
+  --diff-text-added-underline: rgba(63, 185, 80, 0.6);
+
+  /* —— 行号槽（changeGutter）的 3px 竖条：库默认实色 #e43 / #2b2，同样调浅 —— */
+  --diff-gutter-removed: rgba(248, 81, 73, 0.55);
+  --diff-gutter-added: rgba(63, 185, 80, 0.6);
+
+  /* —— 字词级（inline-word-diff.js 出口变量） ——
+     字词高亮要压在行底色之上，透明度必须高于行级才看得出粒度差别。 */
+
+  /* 差异语义基色（RGB 三元组）。字词底色与连线描边/填充都由它派生，
+     保证「连线颜色 == 它所连的高亮块颜色」同源，不两边各写硬编码色号
+     （team-lead 验收硬性要求）。改色只改这两行基色即可全局联动。 */
+  --diff-removed-rgb: 248, 81, 73; /* 左独有 / 删除：红 */
+  --diff-added-rgb: 46, 160, 67; /* 右独有 / 新增：绿 */
+
+  --diff-word-added-bg: rgba(var(--diff-added-rgb), 0.3);
+  --diff-word-removed-bg: rgba(var(--diff-removed-rgb), 0.3);
+
+  /* —— 移动块（move-decorations.js 出口变量）：蓝色，与红/绿语义区隔 —— */
+  --diff-move-bg: rgba(56, 139, 253, 0.18);
+
+  /* —— 第三期：移动块跨栏连线（move-connectors.js 出口变量，勿改名） ——
+     两层用不同色相区分：A↔B（Yours↔Result）蓝、B↔C（Result↔Theirs）紫。
+     -stroke 为描边色，-fill 为连接带填充色（必须比描边更淡，否则会盖住栏间背景）。 */
+  --diff-connector-ab: rgba(56, 139, 253, 0.7);
+  --diff-connector-ab-fill: rgba(56, 139, 253, 0.14);
+  --diff-connector-bc: rgba(163, 113, 247, 0.7);
+  --diff-connector-bc-fill: rgba(163, 113, 247, 0.14);
+
+  /* —— 独属内容连线（'diff' 层，move-connectors.js 的 VARIANT_PAINT 同款色相）——
+     与行内高亮同色：绿连绿（仅右侧独有 / 新增）、红连红（仅左侧独有 / 删除），
+     用户一眼能看出「这条线连的是哪一块高亮」。颜色直接派生自 --diff-*-rgb
+     （与 --diff-word-*-bg 同源），-fill 用更低 alpha 避免盖住栏间背景。 */
+  --diff-connector-added: rgba(var(--diff-added-rgb), 0.75);
+  --diff-connector-added-fill: rgba(var(--diff-added-rgb), 0.16);
+  --diff-connector-removed: rgba(var(--diff-removed-rgb), 0.75);
+  --diff-connector-removed-fill: rgba(var(--diff-removed-rgb), 0.16);
+
+  /* —— 第三期：位置概览面板（location-pane.js） —— */
+  --lp-bg: var(--bg-secondary);
+  --lp-border: var(--border-subtle);
+  --lp-track: rgba(127, 127, 127, 0.1);
+  --lp-bar-change: rgba(56, 139, 253, 0.55);
+  --lp-bar-insert: rgba(63, 185, 80, 0.6);
+  --lp-bar-delete: rgba(248, 81, 73, 0.6);
+  /* 概览条上的移动弧线按层分色，与主体连线层同一套色相语言：
+     A↔B（Yours→Result）蓝 = --lp-arc；B↔C（Result→Theirs）紫 = --lp-arc-bc，
+     紫色相取自 --diff-connector-bc，透明度沿用 --lp-arc 一档（概览条尺寸小，
+     过重会盖住底下的差异色块）。 */
+  --lp-arc: rgba(56, 139, 253, 0.5);
+  --lp-arc-bc: rgba(163, 113, 247, 0.5);
+  --lp-viewport: rgba(127, 127, 127, 0.18);
+  --lp-viewport-border: rgba(127, 127, 127, 0.4);
+}
+
+/* 暗色基底：深色背景上低透明度会"糊掉"，统一抬高一档 */
+[data-theme="dark"] {
+  --diff-line-removed-bg: rgba(248, 81, 73, 0.2);
+  --diff-line-added-bg: rgba(63, 185, 80, 0.2);
+
+  --diff-text-removed-underline: rgba(255, 123, 114, 0.6);
+  --diff-text-added-underline: rgba(126, 231, 135, 0.65);
+
+  --diff-gutter-removed: rgba(255, 123, 114, 0.65);
+  --diff-gutter-added: rgba(126, 231, 135, 0.7);
+
+  --diff-word-added-bg: rgba(46, 160, 67, 0.42);
+  --diff-word-removed-bg: rgba(248, 81, 73, 0.4);
+
+  /* 暗色基色：与亮色同 RGB 三元组（同源），仅 alpha 在下游各自调整。 */
+  --diff-removed-rgb: 248, 81, 73;
+  --diff-added-rgb: 46, 160, 67;
+
+  --diff-move-bg: rgba(56, 139, 253, 0.3);
+
+  --diff-connector-ab: rgba(88, 166, 255, 0.8);
+  --diff-connector-ab-fill: rgba(88, 166, 255, 0.2);
+  --diff-connector-bc: rgba(188, 140, 255, 0.8);
+  --diff-connector-bc-fill: rgba(188, 140, 255, 0.2);
+
+  /* 与字词底色同源（同 --diff-*-rgb），仅 alpha 更高以便连线可见。 */
+  --diff-connector-added: rgba(var(--diff-added-rgb), 0.85);
+  --diff-connector-added-fill: rgba(var(--diff-added-rgb), 0.2);
+  --diff-connector-removed: rgba(var(--diff-removed-rgb), 0.85);
+  --diff-connector-removed-fill: rgba(var(--diff-removed-rgb), 0.2);
+
+  --lp-track: rgba(255, 255, 255, 0.06);
+  --lp-bar-change: rgba(88, 166, 255, 0.7);
+  --lp-bar-insert: rgba(86, 211, 100, 0.7);
+  --lp-bar-delete: rgba(255, 123, 114, 0.7);
+  --lp-arc: rgba(88, 166, 255, 0.6);
+  --lp-arc-bc: rgba(188, 140, 255, 0.6);
+  --lp-viewport: rgba(255, 255, 255, 0.1);
+  --lp-viewport-border: rgba(255, 255, 255, 0.28);
+}
+
+/* ==========================================
+   工具栏布局修正
+   ------------------------------------------
+   editor.css 的三段式（.toolbar-left/.toolbar-center/.toolbar-right）本身
+   已是 flex + align-items:center，.toolbar-group 也是 flex + align-items:center，
+   .toolbar-divider 亦有 align-self:center —— 「按钮垂直居中、间距一致」这部分
+   **原本就是对的**，不重复声明。下面只修 compare 页特有的三处真实错位。
+   ========================================== */
+
+/* 错位①（最严重）：editor.css 的 `#toolbar, .compare-toolbar { flex: 1 1 auto }`
+   本是给 editor.html 里 .toolbar-wrap 这个横向容器用的。compare.html 没有该
+   wrapper，header.compare-toolbar 直接是 body（flex column）的子项，于是
+   flex-grow:1 作用在**纵轴**上——工具栏会被撑满整屏高度，把下方内容全挤没。 */
+.compare-toolbar {
+  flex: 0 0 auto;
+  /* 修复窄窗裁切：启用横向滚动，已接好的 .toolbar-scroll-btn 在内容超宽时自动出现并可达
+     （叠加 html,body{overflow:hidden}，原无 overflow-x 时右侧按钮被裁切不可达，高危缺陷） */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+/* 审计 H1 修复：被 .toolbar-wrap 包裹时（toolbar-scroll.js 始终注入此 wrapper），
+   让 .compare-toolbar 占满包裹容器宽度并可收缩，从而触发自身 overflow-x:auto 横向滚动，
+   修复窄窗右侧按钮被裁切不可达。特异性 (0,2,0) 高于 .compare-toolbar(0,1,0)，
+   且仅作用于已包裹状态；无 wrapper 时仍回退上方 flex:0 0 auto（防工具栏撑满整屏）。 */
+.toolbar-wrap .compare-toolbar {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* 错位②：body 是 flex column，但 .compare-main 此前没有任何布局声明，
+   导致内部 .compare-views 的 flex:1 与 .cm-mergeView 的 height:100% 双双失效
+   （百分比高度找不到确定的父高）。补齐纵向 flex 链路。 */
+.compare-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* 分隔线：editor.css 给的 20px 是配 32px 图标按钮的；compare 页是 30px 文字按钮，
+   同比给 22px，分隔线与按钮的视觉重心才对齐。 */
+.compare-toolbar .toolbar-divider {
+  height: 22px;
+}
+
+/* ── 工具栏按钮（统一类 compare-toolbar-btn，避开禁用类名闸门） ── */
+.compare-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  /* 错位③：editor.css 给 .toolbar-btn 配了 flex:0 0 auto，但 compare 页用的是
+     .compare-toolbar-btn，没继承到。nowrap 工具栏里按钮默认 flex-shrink:1，
+     按钮一多就被横向挤扁、文字折行，同一组内按钮随之高低不齐。 */
+  flex: 0 0 auto;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.compare-toolbar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.compare-toolbar-btn:active {
+  transform: scale(0.96);
+}
+.compare-toolbar-btn.active {
+  background: var(--bg-active);
+  color: var(--text-accent);
+  border-color: var(--accent);
+}
+.compare-toolbar-btn.disabled,
+.compare-toolbar-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── 批量合并组（对齐 JetBrains Merge Revisions 顶部栏） ────────────────
+   「应用非冲突变更」是主行动按钮，用 --accent 实心与其余次级按钮拉开层级。 */
+.compare-toolbar-btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.compare-toolbar-btn-primary:hover {
+  background: var(--accent-hover, var(--accent));
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+/* 方向选择器：三枚按钮拼成一条分段控件（<<左 | 全部 | 右>>）。
+   相邻边框用负 margin 折叠，避免出现 2px 的粗接缝。 */
+.compare-dir-group {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.compare-dir-group .compare-dir-btn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+.compare-dir-group .compare-dir-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  margin-left: 0;
+}
+.compare-dir-group .compare-dir-btn:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+/* 选中态压在相邻按钮之上，否则高亮边框会被后一枚的普通边框盖掉半边 */
+.compare-dir-group .compare-dir-btn.active {
+  position: relative;
+  z-index: 1;
+}
+
+/* 「行内高亮」下拉：label 包住 span + select，整体当成一枚工具栏控件对齐 */
+.compare-toolbar-field {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  white-space: nowrap;
+}
+.compare-toolbar-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  user-select: none;
+}
+.compare-toolbar-select {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.compare-toolbar-select:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 状态计数（「6 处变更，2 处冲突」）：纯文本指示，不可点击 */
+.compare-status-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  user-select: none;
+}
+/* 存在冲突时用警示色，让用户第一眼看见「还有几处要人工裁决」 */
+.compare-status-count.has-conflict {
+  color: var(--danger);
+}
+
+/* ── 视图容器布局 ── */
+.compare-views {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+/* 「栏标题 + 编辑器」纵向容器。.compare-views 是横向 flex（编辑区 | 位置概览侧栏），
+   标题栏不能直接做它的子项（会被排成第四列），故多包一层。
+   ⚠ 不要给本容器加 transform / filter / opacity / will-change / contain ——
+   它是「移动块连线层」与「revert 列」的共同祖先，任一属性都会新建层叠上下文，
+   把 .cm-merge-revert 的 z-index:2 关进内部，连线会重新划花块级按钮（B2 复发）。 */
+.compare-panes {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── per-pane 标题栏（左 = Yours / 中 = Result / 右 = Theirs） ──
+   三格等宽近似对齐编辑器分栏：三栏下 MergeView(flex:2，内含两个等宽编辑器) +
+   Theirs(flex:1)，实际每栏各占约 1/3；两栏下由 compare.js 隐藏第三格。 */
+.compare-view-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-primary);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
+}
+.compare-view-header[hidden] {
+  display: none;
+}
+.pane-header {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.pane-header[hidden] {
+  display: none;
+}
+.pane-header-toggle {
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.pane-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.pane-header-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pane-header-close:hover {
+  background: var(--bg-hover);
+  color: var(--danger);
+}
+/* 已关闭的栏：标题格保留（否则用户无从恢复），整体压暗表达「当前不显示」 */
+.pane-header.is-off .pane-header-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* 关栏的视觉隐藏。DOM 事实（@codemirror/merge 6.12.2）：
+   .cm-mergeViewEditors > [ .cm-mergeViewEditor(A), .cm-merge-revert, .cm-mergeViewEditor(B) ]
+   三栏下右栏 Theirs 是 MergeView 之外的独立编辑器，根节点带 .cm-compare-theirs。
+   只做 display:none（不销毁视图），因此重新勾选即可原样恢复，编辑内容不丢。 */
+.compare-panes.pane-off-a .cm-mergeViewEditors > .cm-mergeViewEditor:first-child,
+.compare-panes.pane-off-b .cm-mergeViewEditors > .cm-mergeViewEditor:last-child {
+  display: none;
+}
+.compare-panes.pane-off-c .cm-compare-theirs {
+  display: none;
+}
+/* 左右两栏都关掉时 revert 列没有任何意义，一并收起 */
+.compare-panes.pane-off-a .cm-merge-revert,
+.compare-panes.pane-off-b .cm-merge-revert {
+  display: none;
+}
+
+.compare-view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: none;
+  overflow: hidden;
+  /* 第三期：移动块连线的 SVG 覆盖层以 position:absolute; inset:0 挂在本容器上，
+     必须给出定位基准，否则覆盖层会跑到最近的定位祖先（body）上、坐标全错。
+     ⚠【硬约束·坐标基准】inset:0 的覆盖层以本容器的 **padding box** 为原点，而 JS 侧
+     （move-connectors.js 的 drawNow）拿到的 getBoundingClientRect() 是 **border box**，
+     两者相差一圈边框宽度。JS 已用 clientTop/clientLeft 显式扣掉边框把二者对齐，
+     故这里加 border 不会导致整层偏移；但这份补偿是**成对**的：
+     若日后改用别的定位方式（如把覆盖层挂到别的祖先、或改用 transform 定位），
+     必须同步改 JS 那段归一化逻辑，否则连线会整层错位且没有任何报错。 */
+  position: relative;
+}
+.compare-view:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── MergeView 的滚动模型（改这段之前务必读完） ────────────────────
+   DOM：.cm-mergeView > .cm-mergeViewEditors > .cm-mergeViewEditor > .cm-editor > .cm-scroller
+
+   @codemirror/merge 6.12.2 的设计是【MergeView 自身才是滚动盒，两栏共用它】：
+     externalTheme  `.cm-mergeView { overflow-y: auto }`            (dist/index.js:1078-1080)
+     baseTheme      `.cm-mergeView & .cm-scroller, .cm-mergeView & {
+                       height: auto !important; overflow-y: visible !important }` (:1108-1112)
+   即栏内的 .cm-editor 与 .cm-scroller 都被【两条 !important】强制成「随内容自然增高、
+   自己不滚动」，两栏 A↔B 的行对齐正是靠「共用这一个滚动盒 + 库注入的行间距填充」实现的。
+
+   ⚠ 禁止给 .cm-mergeView 加 overflow:hidden —— 那是把整页唯一的滚动盒关死。
+     真机实测（360Chromex，150 行文档）：加了之后 .cm-mergeView 仍是 clientH=775 /
+     scrollH=2986（内容确实溢出），但 overflow:hidden 让浏览器不再响应用户滚动 ——
+     鼠标滚轮无效、Ctrl+End 走的 CM scrollIntoView 也无效（scrollTop 恒 0），
+     位置面板的视口指示器随之永远停在 top:0%。
+     （该写法由 40ad194(2026-08-02) 引入，本次移除。）
+   ⚠ 也禁止反向改造 .cm-scroller 去当滚动盒 —— 要对抗上面两条 !important，且两栏一旦各自
+     独立滚动，库的行对齐立即失效（R8-D）。
+
+   JS 侧对应约定：栏内 .cm-scroller 的 clientHeight ≡ scrollHeight 且不派发 scroll 事件
+   （库的 height:auto 所致，与本文件无关），所以取滚动盒一律走
+   src/compare/scroll-box.js 的 scrollBoxOf(view)，不要裸用 view.scrollDOM。 */
+/* 【height:100% 不可删】它给了 MergeView 一个确定的主轴尺寸；
+   两栏下 .compare-view 是 column flex，若没有它，flex 项的自动最小尺寸会退化成内容高度，
+   MergeView 被正文撑到与内容等高，overflow-y:auto 形同虚设、照样滚不动。 */
+.compare-view .cm-mergeView {
+  height: 100%;
+}
+/* .cm-editor 的高度/裁剪只对【不在 MergeView 内】的独立编辑器（三栏右侧 Theirs）有效；
+   MergeView 内的同名元素被库的 !important 覆盖，此处写什么都不生效。 */
+.compare-view .cm-editor {
+  height: 100%;
+  overflow: hidden;
+}
+.cm-mergeView {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  /* 纵向滚动交给库的 overflow-y:auto，本文件不得覆盖（理由见上）；
+     横向只做裁剪，避免超长行把整个 MergeView 撑出一条横向滚动条。 */
+  overflow-x: hidden;
+}
+/* 三栏布局：MergeView（Yours|Result） + 独立 Theirs 编辑器 并排
+   ── flex-direction: row !important 是必须的，别删 ──
+   本类挂在 .compare-view 上，而上面的 `.compare-view:not([hidden])`（特异性 0-2-0）
+   已经声明了 flex-direction: column。本类特异性只有 0-1-0，不加 !important 就会
+   被压住，导致 MergeView 与 Theirs **上下堆叠**而不是左右并排（三栏直接失效）。 */
+.compare-three-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0;
+}
+.compare-three-layout .cm-mergeView {
+  flex: 2;
+}
+
+/* ── B↔C 栏间逐块采纳列（替代 .compare-pane-gap，自建非 MergeView revert 列）──
+   由 compare-merge.js 动态挂载，夹在 MergeView(A↔B) 与 Theirs(c) 之间（viewThree 为
+   row flex），视觉上紧邻中间栏 b 与右栏 c，彻底解决原静态 bulk 按钮组「跑到最左侧」的问题。
+   列宽对齐 a↔b 的 .cm-merge-revert (67px)；overflow:hidden 使屏外块按钮被裁掉，
+   按钮以 position:absolute + top 随滚动/刷新重定位到对应差异块。 */
+.cm-compare-revert-bc {
+  flex: 0 0 67px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-primary);
+  border-right: 1px solid var(--border-primary);
+  z-index: 2;
+  height: 100%;
+  box-sizing: border-box;
+}
+/* 列内按钮组：复用 a↔b 列的 .cm-compare-revert-group 结构与类名，但本列不是
+   .cm-merge-revert 子节点，故自带定位规则（不依赖 a↔b 列的 #compareRoot 提权选择器）。 */
+.cm-compare-revert-bc .cm-compare-revert-group {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  z-index: 3;
+}
+.cm-compare-revert-bc .cm-compare-revert-group button {
+  position: static;
+  display: inline-flex;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 1px;
+}
+/* 默认（非冲突）：单按钮；冲突（.is-dual）：双按钮。特异性阶梯与 a↔b 列一致，
+   改动此处务必重算特异性（详见 a↔b 列同款注释）。 */
+#compareRoot .cm-compare-revert-bc .cm-compare-revert-group button.cm-compare-accept-left,
+#compareRoot .cm-compare-revert-bc .cm-compare-revert-group button.cm-compare-accept-right {
+  display: none;
+}
+#compareRoot .cm-compare-revert-bc .cm-compare-revert-group.is-dual button.cm-compare-revert-single {
+  display: none;
+}
+#compareRoot .cm-compare-revert-bc .cm-compare-revert-group.is-dual button.cm-compare-accept-left,
+#compareRoot .cm-compare-revert-bc .cm-compare-revert-group.is-dual button.cm-compare-accept-right {
+  display: inline-flex;
+}
+.cm-compare-theirs {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-left: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  overflow: hidden !important;
+}
+.cm-compare-theirs .cm-editor {
+  height: 100%;
+}
+
+/* ── 第三期：移动块跨栏连线覆盖层 ──
+   pointer-events:none 是硬性要求：本层覆盖整个对比区，若可点击就会吃掉
+   编辑器的选区拖拽与「⇄ 接受此块」按钮的点击。z-index 取 1，压在编辑器
+   底色之上、revert 按钮（更高层级）之下。 */
+.cm-move-connector-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+.cm-move-connector {
+  fill: none;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.cm-move-connector-ab {
+  stroke: var(--diff-connector-ab);
+  fill: var(--diff-connector-ab-fill);
+}
+.cm-move-connector-bc {
+  stroke: var(--diff-connector-bc);
+  fill: var(--diff-connector-bc-fill);
+}
+/* 独属内容连线（'diff' 层，move-connectors.js 渲染成
+   .cm-move-connector.cm-diff-connector-{added|removed}）：与行内高亮同色 —
+   绿连绿（仅右侧独有）、红连红（仅左侧独有）。放在 .cm-move-connector
+   之后，靠「等同特异度 + 靠后」覆盖默认 fill:none 与 presentation 属性兜底。 */
+.cm-diff-connector-added {
+  stroke: var(--diff-connector-added);
+  fill: var(--diff-connector-added-fill);
+}
+.cm-diff-connector-removed {
+  stroke: var(--diff-connector-removed);
+  fill: var(--diff-connector-removed-fill);
+}
+
+/* revert 列（MergeView 的 revertDOM，即「⇄ 接受此块」按钮所在的窄列）必须压在
+   连线层之上。实测 @codemirror/merge 6.12.2 的 baseTheme 只给它 position:relative
+   （dist/index.js:1090-1095），z-index 为 auto ≡ 0，与本层（z-index:1）同处一个
+   层叠上下文 —— 三栏下连接带必然划过该列，把按钮划花（SVG 有 pointer-events:none
+   不影响点击，但视觉污染必现）。
+   position:relative 与库同值，仅为自证「z-index 对 static 元素无效」而显式重申，
+   不改变库的定位模式。用 #compareRoot 限定作用域，不影响其他页面。 */
+#compareRoot .cm-merge-revert {
+  position: relative;
+  z-index: 2;
+  /* 库默认 width:1.6em，只够放一个箭头字形；本项目的块级按钮是「⇄ 采纳此块 /
+     采纳左 ▶ / ◀ 采纳右」这类文字按钮，需保留足够宽度避免逐字折行。
+     经用户反馈收窄 20%（84px → 67px），按钮仍用 nowrap + ellipsis 兜底不折行。 */
+  width: 67px;
+}
+
+/* ── 块级操作按钮组（renderRevertControl 返回的容器） ──
+   库的外部主题写死 `.cm-merge-revert button { position:absolute; width:100% }`，
+   是为「一个块一个箭头按钮」设计的。我们一个块可能要放两枚按钮，若沿用绝对定位
+   两枚会完全重叠。故：外层 div 承担绝对定位（top 由库写进 style），
+   内层 button 用 #compareRoot 提权（1-3-0 > 库的 0-2-0）复位成 static 并纵向排列。 */
+#compareRoot .cm-merge-revert .cm-compare-revert-group {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+#compareRoot .cm-merge-revert .cm-compare-revert-group button {
+  position: static;
+  display: inline-flex;
+  width: 100%;
+  box-sizing: border-box;
+}
+/* 默认（非冲突）：只露单按钮；冲突块 / 两栏（.is-dual 由 compare-merge.js 打）：只露双按钮。
+   ⚠ 特异性阶梯必须严格递增，否则显隐规则会被上面的 base 规则压过（曾发生的真实缺陷）：
+     base   #compareRoot .cm-merge-revert .cm-compare-revert-group button   = (1,2,1) display:inline-flex
+     默认隐藏 …… button.cm-compare-accept-left                              = (1,3,1) display:none
+     is-dual …… .is-dual button.cm-compare-accept-left                      = (1,4,1) display:inline-flex
+   早期写法把「默认隐藏」写成 (1,2,0)（末尾是 class 而非 `button.class`），class 段与 base 打平、
+   却少一个类型选择器，于是 base 的 inline-flex 胜出 → 非冲突块把「采纳左/采纳右」也一并渲染，
+   三枚按钮纵向溢出压到相邻块上，且点击非冲突块的「采纳右」会静默无反应。改动此段务必重算特异性。 */
+#compareRoot .cm-merge-revert .cm-compare-revert-group button.cm-compare-accept-left,
+#compareRoot .cm-merge-revert .cm-compare-revert-group button.cm-compare-accept-right {
+  display: none;
+}
+#compareRoot
+  .cm-merge-revert
+  .cm-compare-revert-group.is-dual
+  button.cm-compare-revert-single {
+  display: none;
+}
+#compareRoot
+  .cm-merge-revert
+  .cm-compare-revert-group.is-dual
+  button.cm-compare-accept-left,
+#compareRoot
+  .cm-merge-revert
+  .cm-compare-revert-group.is-dual
+  button.cm-compare-accept-right {
+  display: inline-flex;
+}
+/* 双向按钮按方向分色：左＝主强调色，右＝成功色，与三栏 Theirs 的语义色一致 */
+#compareRoot .cm-compare-accept-right {
+  border-color: var(--success);
+  color: var(--success);
+}
+#compareRoot .cm-compare-accept-right:hover {
+  background: var(--success);
+  color: #fff;
+}
+
+/* ── 第三期：位置概览侧栏（location-pane.js 渲染其内部结构） ──
+   作为 .compare-views 的最后一个 flex 子项，宽度由 --lp-width 决定（可拖拽调整，
+   由 compare.js 的 initLocationPaneResizer 写入并持久化），不参与伸缩。 */
+.compare-location-pane {
+  flex: 0 0 var(--lp-width, 176px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow: hidden;
+  background: var(--lp-bg);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+.compare-location-pane[hidden] {
+  display: none;
+}
+
+/* 概览侧栏拖拽分隔条：与 editor.css 的 .resizer 视觉/交互保持一致。
+   原先 .compare-location-pane 的 margin-left:8px 由本分隔条的宽度取代，
+   拖动时不产生额外位移。 */
+.compare-lp-resizer {
+  flex: 0 0 8px;
+  width: 8px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast, 0.12s ease);
+}
+.compare-lp-resizer[hidden] {
+  display: none;
+}
+.compare-lp-resizer:hover,
+.compare-lp-resizer.dragging {
+  background: var(--accent-glow, rgba(88, 166, 255, 0.18));
+}
+.compare-lp-resizer-handle {
+  width: 3px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--border-primary);
+  transition: all var(--transition-fast, 0.12s ease);
+}
+.compare-lp-resizer:hover .compare-lp-resizer-handle,
+.compare-lp-resizer.dragging .compare-lp-resizer-handle {
+  background: var(--accent);
+  height: 60px;
+  box-shadow: 0 0 8px var(--accent-glow, rgba(88, 166, 255, 0.18));
+}
+
+/* location-pane.js 生成的内部结构。
+   ⚠ .lp-overview 必须由本处给出可见高度：JS 侧只写百分比定位，
+   父容器高度为 0 时所有色块会一起塌陷成不可见。 */
+.lp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+.lp-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* 概览条区吃掉剩余高度；大纲区按内容高度、超出后自身滚动 */
+.lp-section-overview {
+  flex: 1 1 auto;
+}
+.lp-section-outline {
+  flex: 0 1 auto;
+  max-height: 45%;
+}
+.lp-section-title {
+  flex: none;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.lp-overview {
+  flex: 1 1 auto;
+  min-height: 120px;
+  border-radius: var(--radius-sm, 4px);
+  overflow: hidden;
+  cursor: pointer;
+}
+.lp-track {
+  background: var(--lp-track);
+}
+.lp-bar {
+  border-radius: 1px;
+}
+.lp-bar-change {
+  background: var(--lp-bar-change);
+}
+.lp-bar-insert {
+  background: var(--lp-bar-insert);
+}
+.lp-bar-delete {
+  background: var(--lp-bar-delete);
+}
+/* 概览条上的移动弧线。location-pane.js 打的是 `lp-arc lp-arc-ab` 或 `lp-arc lp-arc-bc`。
+   【约定】.lp-arc 即 A↔B 层的样式，故 .lp-arc-ab 不单独定义（继承 .lp-arc 即可，
+   加了也只是重复同一色值）；只有 B↔C 层需要覆盖成紫色。
+   .lp-arc-bc 与 .lp-arc 同为 0-1-0，靠**写在后面**取胜，勿把它挪到 .lp-arc 之前。 */
+.lp-arc {
+  stroke: var(--lp-arc);
+}
+.lp-arc-bc {
+  stroke: var(--lp-arc-bc);
+}
+.lp-viewport {
+  background: var(--lp-viewport);
+  border-top: 1px solid var(--lp-viewport-border);
+  border-bottom: 1px solid var(--lp-viewport-border);
+  box-sizing: border-box;
+}
+
+.lp-outline {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.lp-outline-item {
+  padding: 1px 4px 1px calc(4px + var(--lp-indent, 0) * 8px);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.lp-outline-item:hover {
+  background: var(--bg-hover, rgba(127, 127, 127, 0.12));
+  color: var(--text-primary);
+}
+.lp-outline-h1 {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.lp-outline-empty {
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--text-tertiary, var(--text-secondary));
+  user-select: none;
+}
+
+/* ── 文件选择区 ── */
+.compare-files {
+  display: flex;
+  gap: var(--ui-gap);
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+/* 按需求隐藏文件选择区中的两个文件名标签栏（图1 红框标注的「本地文件/对方文件」）。
+   DOM 保留，仅隐藏 .compare-file-slot 视觉，以便将来恢复；
+   注意：保留 #compareFiles 容器作为文件拖拽区（E4-01，compare.js:1552），
+   不对其 display:none，避免拖拽载入入口静默失效。
+   特异性提升为 #compareFiles .compare-file-slot，确保压过下方
+   .compare-file-slot{display:flex}（同源特异性、后者胜）的默认规则。 */
+#compareFiles .compare-file-slot {
+  display: none;
+}
+.compare-file-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.compare-file-slot[data-slot="a"] {
+  border-left: 3px solid var(--accent);
+}
+.compare-file-slot[data-slot="b"] {
+  border-left: 3px solid var(--success);
+}
+.compare-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 图片拖拽区提示条 ── */
+.compare-image-drop {
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── 差异行高亮（compare-line-markers.js 注入的类） ── */
+.cm-compare-line-added {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+}
+.cm-compare-line-removed {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.cm-compare-chunk-gutter {
+  width: 1.2em;
+  color: var(--text-muted);
+}
+.cm-compare-chunk-marker {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 700;
+}
+.cm-compare-chunk-gutter .cm-compare-chunk-marker:has(+ *) {
+  /* 保留占位，避免空规则 */
+}
+.cm-compare-chunk-gutter .cm-compare-chunk-marker {
+  color: var(--text-secondary);
+}
+
+/* ── 自定义块级按钮（renderRevertControl：接受此块 / 采纳左 / 采纳右） ──
+   宽度受 .cm-merge-revert 列（67px，已收窄 20%）约束，故字号压到 11px 并强制 nowrap；
+   否则「⇄ 接受此块」会逐字折行成一条竖排文字。 */
+.cm-compare-revert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 20px;
+  padding: 1px 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  color: var(--text-accent);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.cm-compare-revert:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── 图片拖拽区（compare-images.js 注入的类，保持视觉一致） ── */
+.compare-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.compare-dropzone:hover,
+.compare-dropzone.compare-dropzone-dragover {
+  background: var(--bg-active);
+  border-color: var(--accent);
+  color: var(--text-accent);
+}
+.compare-dropzone-hint {
+  pointer-events: none;
+}
+.compare-filebtn {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+}
+.compare-filebtn:hover {
+  background: var(--bg-hover);
+}
+
+/* ── 底部全局操作栏 ──
+   body 是 flex column，.compare-main 已 flex:1，本栏 flex:0 0 auto 即自然贴底，
+   无需 position:fixed（fixed 会脱离流、盖住编辑器最后一行，且要额外给 main 补 padding）。 */
+.compare-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-primary);
+}
+.compare-footer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  height: 30px;
+  padding: 0 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.compare-footer-btn:active {
+  transform: scale(0.98);
+}
+.compare-footer-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 空状态提示（无任何视图渲染时） */
+.compare-empty-hint {
+  margin: auto;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ==========================================
+   @codemirror/merge 配色覆盖（实测 v6.12.2）
+   ------------------------------------------
+   实测该版本 baseTheme（node_modules/@codemirror/merge/dist/index.js:1108）
+   真实使用的类名与默认色值：
+     .cm-merge-a / .cm-merge-b        挂在 .cm-editor 根上（editorAttributes）
+     .cm-changedLine                  变更行  a 侧 rgba(160,128,100,.08)
+                                              b 侧 rgba(100,160,128,.08)
+     .cm-deletedChunk                 删除块容器，同 a 侧行底色
+     .cm-inlineChangedLine            行内变更行，同 b 侧行底色
+     .cm-changedText / .cm-deletedText 变更文字，2px 底部渐变条
+                                       亮 #ee443366(红) / #22bb22aa(绿)
+                                       暗 #ffaa9966(红) / #88ff88aa(绿)
+     .cm-merge-b .cm-deletedText      删除块外的删除文字，整块底色 #ff000033
+     .cm-changedLineGutter /
+     .cm-deletedLineGutter            行号槽 3px 竖条，实色 #e43 / #2b2（最刺眼的红）
+     .cm-insertedLine / .cm-deletedLine 仅置 text-decoration:none，不带底色
+   需求：上述红过深，统一改为浅红；绿一并抽成变量保持两侧体系一致。
+
+   【层叠优先级】baseTheme 由 style-mod 注入 <style>，且始终插入到 head.firstChild
+   （style-mod/src/style-mod.js:138），排在本文件 <link> 之前；但其选择器带生成类
+   （如 .ͼ1.ͼlight.cm-merge-a .cm-changedText，四个类）优先级已达 0-4-0，普通类
+   选择器压不住。这里用页面根节点的 id 选择器 #compareRoot 提权到 1-x-0，
+   稳定胜出且无需 !important。 */
+
+/* 行级底色 */
+#compareRoot .cm-editor.cm-merge-a .cm-changedLine,
+#compareRoot .cm-editor .cm-deletedChunk {
+  background-color: var(--diff-line-removed-bg);
+}
+#compareRoot .cm-editor.cm-merge-b .cm-changedLine,
+#compareRoot .cm-editor .cm-inlineChangedLine {
+  background-color: var(--diff-line-added-bg);
+}
+
+/* 移动块底色（必须压过上面的 changedLine 红/绿）
+   ------------------------------------------
+   【为什么必须在这里提权】移动 = 一侧删除 + 另一侧新增，所以移动块所在的行
+   【必然】同时被 @codemirror/merge 打上 changedLine。上面两条是 1-3-0，而
+   .cm-move-block 的蓝底由 move-decorations.js 的 baseTheme 提供（0-1-0，且
+   baseTheme 按 CodeMirror 的设计就是「供用户覆盖」的最低层），结果是蓝底
+   100% 被红/绿压死——移动检测算得再准，用户也一个像素都看不到。
+   真机实测：移动块所在行取到的背景是 rgba(248,81,73,.12)（浅红）而非蓝。
+
+   【语义依据】对齐 Git --color-moved：移动行用专属色【替代】红/绿，而非叠加。
+   它表达的是「这段内容没变、只是挪了位置」，与「内容被增删」是互斥的两种事实，
+   因此覆盖而不是混色才是正确语义。
+
+   优先级取 1-4-0（比上面多一个 .cm-line），稳定胜出且无需 !important；
+   末条 1-3-0 是兜底（面板未带 cm-merge-a/b 时），靠源码顺序在后取胜。 */
+#compareRoot .cm-editor.cm-merge-a .cm-line.cm-move-block,
+#compareRoot .cm-editor.cm-merge-b .cm-line.cm-move-block,
+#compareRoot .cm-editor .cm-line.cm-move-block {
+  background-color: var(--diff-move-bg);
+}
+
+/* 删除块之外的删除文字（库给整块 #ff000033，偏艳）。
+   刻意放在下面的删除块规则之前：两条同为 1-3-0，靠源码顺序让块内文字走下划条样式。 */
+#compareRoot .cm-editor.cm-merge-b .cm-deletedText {
+  background: var(--diff-word-removed-bg);
+}
+
+/* 变更文字的 2px 底部提示条 */
+#compareRoot .cm-editor.cm-merge-a .cm-changedText,
+#compareRoot .cm-editor .cm-deletedChunk .cm-deletedText {
+  background: linear-gradient(
+      var(--diff-text-removed-underline),
+      var(--diff-text-removed-underline)
+    )
+    bottom / 100% 2px no-repeat;
+}
+#compareRoot .cm-editor.cm-merge-b .cm-changedText {
+  background: linear-gradient(
+      var(--diff-text-added-underline),
+      var(--diff-text-added-underline)
+    )
+    bottom / 100% 2px no-repeat;
+}
+
+/* 行号槽竖条 */
+#compareRoot .cm-editor.cm-merge-a .cm-changedLineGutter,
+#compareRoot .cm-editor .cm-deletedLineGutter {
+  background: var(--diff-gutter-removed);
+}
+#compareRoot .cm-editor.cm-merge-b .cm-changedLineGutter {
+  background: var(--diff-gutter-added);
+}
+
+/* ── 焦点态描边（瞬时）──
+   CodeMirror 自带 .cm-focused 的 1px 虚线 outline（baseTheme，0-2-0），
+   这里三个类 0-3-0 覆盖掉，改为 --accent 实线内描边，避免虚线与下方活动栏实线叠成双框。
+   注意：.cm-focused 由 CM 自动管理，【失焦即移除】，因此它只能表达「此刻焦点在哪」，
+   不足以表达「Ctrl+S 会存哪一栏」——后者由下面的 .cmp-pane-active 负责。 */
+.compare-view .cm-editor.cm-focused {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ── 活动栏描边（持久）──
+   Ctrl+S /「保存」写回的是【活动栏】，属写盘操作，视觉锚点必须在焦点离开编辑器后依然存在：
+   用户点工具栏「保存」按钮的瞬间，编辑器就已失焦、.cm-focused 被 CM 移除；若只靠焦点态，
+   恰好在做写盘决策时屏幕上没有任何描边。三栏下更危险——先瞄一眼 Theirs 栏再点保存，
+   会在无提示的情况下写回 Theirs 的源文件。
+   .cmp-pane-active 由 compare.js 在 focusin 时切换、失焦不清除，故能持久标示保存目标。
+   用 outline 而非 border：outline 不参与布局，切换活动栏不会引起面板尺寸抖动；
+   负 offset 让描边落在面板内侧，避免被父容器裁切。 */
+#compareRoot .cm-editor.cmp-pane-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ==========================================
+   模式状态机可见性（§3 / D1 / D10）
+   ------------------------------------------
+   C1（compare.js）在 document.body 上切换 compare-mode-compare /
+   compare-mode-merge 类（同时兼容旧命名 .mode-compare）。
+   合并专用控件组（.merge-only：应用非冲突 + 方向选择器 + 行内高亮 +
+   状态计数）仅在合并模式可见；对照模式整体隐藏。
+   ========================================== */
+.merge-only {
+  /* 默认可见；仅对照模式由下方规则隐藏 */
+}
+.mode-compare .merge-only,
+.compare-mode-compare .merge-only {
+  display: none !important;
+}
+
+/* D1：合并模式（body.compare-mode-merge / body.mode-merge）下隐藏栏数切换按钮，
+   该按钮仅对照模式有意义。用 !important 覆盖 .toolbar-group 可能设置的 display。 */
+.compare-mode-merge #btnColToggle,
+body.mode-merge #btnColToggle {
+  display: none !important;
+}
+
+/* ── 模式入口按钮组（对照 / 合并）──
+   复用 .compare-toolbar-btn；.active 高亮态由 .compare-toolbar-btn.active
+   统一提供，此处仅补充分段控件的相邻边框折叠，避免两枚按钮间出现 2px 粗缝。 */
+.compare-mode-group .compare-toolbar-btn + .compare-toolbar-btn {
+  margin-left: -1px;
+}
+.compare-mode-group .compare-toolbar-btn:not(:first-child) {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.compare-mode-group .compare-toolbar-btn:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+/* ── 滚动同步按钮（btnScroll，D16）──
+   active（启用同步）= 高亮；inactive（默认）= 普通次级按钮外观。
+   两种态直接复用 .compare-toolbar-btn / .compare-toolbar-btn.active，无需额外声明。 */
+
+/* ── 第三期：块拖拽 / 选区拖拽手柄与 diff 采纳按钮层级分离（§8.5）──
+   风险：block-drag 的 SelectionDragWidget（.markra-selection-drag-handle，
+   零宽 absolute 外壳浮在行内）可能与 revert 列的「⇄ 接受此块 / ◀▶」按钮
+   同处一个层叠上下文而误触。revert 列按钮已设 z-index:2，这里把按钮组再提
+   一档并给按钮间留 1px 间距，进一步降低贴边误点；拖拽手柄沿用 block-drag.js
+   自身样式（不在此跨界改写，避免与库 specificity 冲突）。 */
+#compareRoot .cm-merge-revert .cm-compare-revert-group {
+  z-index: 3;
+}
+#compareRoot .cm-merge-revert .cm-compare-revert-group button {
+  margin: 0 1px;
+}
+
+/* ==========================================
+   保存轮询 / 另存为弹窗（§5.3 / D10.2 ④）
+   ------------------------------------------
+   DOM 由 src/save-poll.js 动态创建，实际使用的类名（已对齐，勿改名）：
+     .save-poll-overlay   遮罩层
+     .save-poll-modal     居中对话框卡片
+     .save-poll-path      绝对路径 + 文件名展示区
+     .save-poll-hint      说明文字
+     .save-poll-input     另存为文件名输入
+   按钮（保存/另存为/不保存/取消）由 save-poll.js 用内联 flex 容器承载，
+   此处统一外观。save-poll.js 当前用内联 style 占位，下面用 !important 覆盖，
+   使弹窗走本项目的明暗主题变量（避免硬编码深色）。
+   ========================================== */
+.save-poll-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  font-family: var(--font-sans) !important;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.save-poll-modal {
+  min-width: 360px !important;
+  max-width: 90vw !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 18px 20px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.save-poll-path {
+  margin: 10px 0 !important;
+  padding: 8px 10px !important;
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  word-break: break-all !important;
+  line-height: 1.5 !important;
+  color: var(--text-accent) !important;
+}
+.save-poll-hint {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  margin-bottom: 12px !important;
+  line-height: 1.5 !important;
+}
+.save-poll-input {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 10px !important;
+  margin: 10px 0 14px !important;
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+}
+/* 四个按钮（保存/另存为/不保存/取消）统一外观；首枚（保存）用 accent 强调，
+   末枚（取消）用 danger 警示，便于一眼区分主/次动作。 */
+.save-poll-overlay button {
+  flex: 1 1 auto !important;
+  margin: 0 4px !important;
+  padding: 8px 10px !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-family: var(--font-sans) !important;
+  transition: all var(--transition-fast);
+}
+.save-poll-overlay button:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+.save-poll-overlay button:first-child {
+  border-color: var(--accent) !important;
+  color: var(--text-accent) !important;
+}
+.save-poll-overlay button:last-child {
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
+}
+
+/* === GLASS_SKIN: compare view === */
+/* 对比视图玻璃皮肤：门控 [data-skin="glass"]，风格对齐 editor.css 主视图玻璃块。
+   ⚠ 硬约束：绝不对 .compare-panes / .cm-mergeView / .compare-view / .compare-view-two
+   / .compare-view-three（含任意后代）加 backdrop-filter / transform / filter /
+   will-change / contain —— 它们是 MergeView 连线层与 revert 列的共同祖先，任何
+   层叠/变换都会把块级「采纳此块」按钮划花（B2 缺陷复发，compare.css 多处注释强调）。
+   玻璃只允许落在 .compare-toolbar / .compare-footer / .compare-location-pane /
+   .toolbar-scroll-btn / .compare-main（仅半透明底，无 blur）上。
+   环境光晕复用 editor.css 的 [data-skin="glass"] body::before（全局已生效），本页不重定义。 */
+
+/* .compare-main 仅加半透明底：它是 .compare-panes 的祖先，绝不可加 backdrop-filter
+   （blur 会穿透到 MergeView）。背景本身不新建层叠上下文，安全。 */
+[data-skin="glass"] .compare-main {
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+}
+
+/* 工具栏玻璃：非 MergeView 祖先，允许 blur */
+[data-skin="glass"] .compare-toolbar {
+  background: color-mix(in srgb, var(--bg-toolbar) 74%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-bottom: 1px solid color-mix(in srgb, var(--edge) 60%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 6px 24px rgba(0, 0, 0, 0.22);
+}
+
+/* 立体玻璃按钮：与 .compare-toolbar-btn 自带的 transition:all 兼容
+   （hover 的 translateY 与 :active 的 scale 不同时触发，不冲突） */
+[data-skin="glass"] .compare-toolbar-btn {
+  background: linear-gradient(180deg, var(--btn-top, rgba(255, 255, 255, 0.9)), var(--btn-bot, rgba(225, 238, 248, 0.7)));
+  border: 1px solid var(--edge, transparent);
+  color: var(--text-secondary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -1px 2px rgba(0, 0, 0, 0.25), 0 2px 5px var(--shadow-sm);
+}
+[data-skin="glass"] .compare-toolbar-btn:hover {
+  transform: translateY(-2px);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 14px var(--accent-glow), 0 4px 10px var(--shadow-md);
+}
+[data-skin="glass"] .compare-toolbar-btn:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+[data-skin="glass"] .compare-toolbar-btn.active {
+  border-color: var(--accent);
+  color: var(--text-accent);
+  background: var(--bg-active);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.25), 0 2px 5px var(--shadow-sm);
+}
+
+/* 滚动箭头玻璃：与 editor.css 同向，确保对比页一致（非 MergeView 祖先） */
+[data-skin="glass"] .toolbar-scroll-btn {
+  background: color-mix(in srgb, var(--bg-toolbar) 72%, transparent);
+  border-color: var(--edge);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+/* 底部返回按钮轻玻璃：非 MergeView 祖先，允许轻 blur */
+[data-skin="glass"] .compare-footer-btn {
+  background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+  border-color: var(--edge);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+}
+
+/* 审计 M2 优化：位置概览侧栏与 .compare-panes 平级、为大面积长条，
+   MergeView 滚动时背后内容逐帧重采样模糊易掉帧（尤其软渲环境）。
+   降级为纯半透明背景（与 .compare-main 同思路，无 blur），保滚动稳定、仅少一层玻璃质感。 */
+[data-skin="glass"] .compare-location-pane {
+  background: color-mix(in srgb, var(--lp-bg) 90%, transparent);
+  border-color: var(--edge);
+}

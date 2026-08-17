@@ -1,0 +1,64 @@
+name: CI
+
+permissions:
+  contents: write
+
+# 触发：推送到 main / fix/print-multipage / feat/editor-find-replace-bracket 分支、打 v* 标签、对 main 开 PR 时运行。
+# 说明：本 fork 此前无 CI 工作流；本文件用于「远端编译」——
+# 在 GitHub 云端跑 npm ci + vite build 产出 dist/，并作为 artifact 上传（不创建 Release）。
+on:
+  push:
+    branches: [main, fix/print-multipage, feat/editor-find-replace-bracket, feature/compare-merge-ag]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Compile (remote)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: Run tests (node --test)
+        run: npm test
+
+      - name: Build / Compile (vite build -> dist/)
+        run: npm run build
+
+      - name: Upload compiled artifact (dist/)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+      - name: Pack extension (zip via npm run pack)
+        run: npm run pack
+
+      - name: Upload extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: chrome-md-editor-v*.zip
+          if-no-files-found: error
+
+      # 打 v* 标签时，把扩展 zip 一并发布到 Release（与 Desktop Build 工作流的 EXE 共同构成「扩展 + EXE」双交付）。
+      # CI 构建较快，会先创建 Release 并附上扩展；随后 Desktop Build 再把免安装 EXE 追加到同一 Release。
+      - name: Release extension (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: chrome-md-editor-v*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Markdown Editor",
   "description": "本地 Markdown 编辑器 - 在浏览器中查看和编辑 Markdown 文件",
-  "version": "1.4.2",
+  "version": "1.9.5",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -23,7 +23,8 @@
   "permissions": [
     "storage",
     "scripting",
-    "tabs"
+    "tabs",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://api.openai.com/*",
@@ -77,7 +78,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/editor.html"
+        "src/editor.html",
+        "src/compare.html"
       ],
       "matches": [
         "file:///*"

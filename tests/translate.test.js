@@ -309,6 +309,16 @@ test('extensionFetch uses inject fetchImpl when provided', async () => {
   assert.equal(await res.text(), 'ok');
 });
 
+test('extensionFetch 超时：fetchImpl 永不应答时按时 reject（H2 回归）', async () => {
+  // 用一个永远 pending 的 fetchImpl 模拟「翻译 API 挂起」，必须在 timeoutMs 内 reject，
+  // 否则翻译 UI 会永久卡在「翻译中」。
+  const neverResolve = () => new Promise(() => {}); // 永不应答
+  await assert.rejects(
+    () => extensionFetch('https://example.com', { method: 'GET' }, { fetchImpl: neverResolve, timeoutMs: 200 }),
+    /超时/
+  );
+});
+
 test('callTranslateApi MiniMax Anthropic path uses /messages + x-api-key', async () => {
   clearTranslationCache();
   let seenUrl = '';

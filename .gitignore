@@ -32,3 +32,38 @@ dist-ssr
 
 # Local Playwright profile for extension E2E
 .playwright-chrome-md-editor/
+
+# E2E 测试运行目录：采用「默认拒绝 + 逐文件显式白名单」模型，仅放行约定的 8 个通用 lib 脚本。
+# 原因（重要，勿改回黑名单/勿改回宽白名单）：该目录会生成 profile/ 与 profile-<时间戳>/ 等浏览器
+# 用户数据目录，体积约 1.8GB / 39 万文件，且内含 Login Data（密码库）、Cookies、
+# 收藏夹备份等真实隐私数据。黑名单式忽略一旦漏写一种命名，隐私即被推送到公开仓库；
+# 宽白名单（*.mjs/*.png/*.md）则会让一次性调试产物被 `git add -A` 误入库。
+# 白名单与历史提交 `git ls-files .test-run/` 完全一致；新增通用 lib 须在此逐行加白。
+.test-run/*
+!.test-run/bnd-compare.mjs
+!.test-run/bnd-fixtures.mjs
+!.test-run/bnd-lib.mjs
+!.test-run/diag-cm.mjs
+!.test-run/diag-cmpx.mjs
+!.test-run/diag-token.mjs
+!.test-run/e2e-editor-lib.mjs
+!.test-run/fix-verify.mjs
+
+# 主题探索临时产物（非源码，不入仓库）
+theme-exploration/
+
+# 构建产物的派生副本（通配，勿再逐个打补丁）。vite 的 emptyDir 会被本机删除守卫
+# 拦截，绕过办法是先把旧 dist 改名移走；验证类子任务也会另建对照产物目录。已实际
+# 出现过：dist_stale2/、dist_stale_<时间戳>/、dist_stale_guardtmp/、dist_verify/、
+# dist_verify_pre/ —— 均与 dist 同构（各约 181 文件 / 5.3MB），属纯构建产物。
+# 注意：上方第 11 行的 `dist` 规则只匹配名为 dist 的条目，不做前缀匹配，因此这些
+# 副本此前完全未被忽略，一次 `git add -A` 就会把 500+ 个产物文件整体入库。
+# 教训：dist_stale*/ 那次是窄补丁，两轮后就被 dist_verify/ 绕过。这里改用 dist_ 前缀
+# 通配，任何新的 dist 派生目录都自动落网。（dist-ssr 用连字符，由第 12 行单独覆盖。）
+dist_*/
+
+# 子任务临时验证目录。第三轮迭代中并行子任务未走 .test-run/ 约定，自建了
+# tmp-verify/（含 shots/ 截图与 run.log，约 544KB），属一次性验证产物。
+# 与 .test-run/ 不同，这类目录没有白名单保护，`git add -A` 会整体入库。
+tmp-verify/
+tmp-*/

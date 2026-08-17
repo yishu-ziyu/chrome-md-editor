@@ -1,0 +1,14 @@
+{
+  "name": "chrome-md-editor-desktop",
+  "private": true,
+  "version": "1.4.14",
+  "type": "module",
+  "scripts": {
+    "dev:web": "npm --prefix .. run dev",
+    "build:web": "npm --prefix .. run build",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
