@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown 对比合并</title>
+    <!-- 复用 editor.css 的主题变量（--bg/--fg/--accent/--border 等），不新建变量 -->
+    <link rel="stylesheet" href="./editor.css" />
+    <link rel="stylesheet" href="./compare.css" />
+  </head>
+  <body>
+    <!-- 顶部工具栏：三段式 left / center / right，行为在 compare.js 中绑定 -->
+    <header class="toolbar compare-toolbar" id="compareToolbar">
+      <div class="toolbar-left">
+        <span class="logo-text">MD 对比</span>
+        <span class="app-version" id="compareVersion" title="扩展版本">v1.9.5</span>
+        <!-- 模式入口（D1）：对照 / 合并。默认对照态由 C1 在 body 上切
+             compare-mode-compare 类并给对应按钮加 .active，文案/可见性归 C1。 -->
+        <div class="toolbar-group compare-mode-group">
+          <button class="compare-toolbar-btn active" id="btnModeCompare" title="对照模式：打开 2 或 3 个独立文件，逐栏编辑与查看异同（无合并结果栏）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>对照</button>
+          <button class="compare-toolbar-btn" id="btnModeMerge" title="合并模式：左本地 / 中合并结果 / 右对方，固定三栏">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v4a4 4 0 0 0 4 4h0M18 7v4a4 4 0 0 1-4 4h0"/></svg>合并</button>
+        </div>
+      </div>
+
+      <div class="toolbar-center">
+        <!-- 栏数切换（D1/D2）：对照模式下的动态两栏/三栏切换。
+             合并模式下由 C1 设 hidden 隐藏。初始文案「三栏」表示点它切到三栏
+             （compare 模式默认两栏），C1 会随 colCount 翻转 textContent。 -->
+        <div class="toolbar-group compare-view-group">
+          <button class="compare-toolbar-btn" id="btnColToggle" title="切换对照模式的栏数（两栏 / 三栏）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>三栏</button>
+          <button class="compare-toolbar-btn" id="btnToggleLocationPane" title="显示 / 隐藏右侧位置概览（差异缩略图 + 大纲，快捷键 L）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>概览</button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- 块导航与逐块合并 -->
+        <div class="toolbar-group">
+          <button class="compare-toolbar-btn" id="btnPrevChunk" title="跳到上一块 (Shift+B 或 [，编辑区内用 Alt+Shift+B)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>← 上一块</button>
+          <button class="compare-toolbar-btn" id="btnNextChunk" title="跳到下一块 (B 或 ]，编辑区内用 Alt+B)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>下一块 →</button>
+          <!-- 默认全文展开，所以初始文案是「折叠未改」；compare.js 会随状态同步该文案 -->
+          <button class="compare-toolbar-btn" id="btnToggleCollapse" title="折叠 / 展开未修改的区域（默认全文展开，快捷键 E）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="4" x2="20" y2="4"/><line x1="4" y1="20" x2="20" y2="20"/><polyline points="6 9 12 15 18 9"/></svg>折叠未改</button>
+          <button class="compare-toolbar-btn" id="btnAcceptTheirs" title="把光标所在的对方块并入合并结果">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v10"/><polyline points="8 9 12 13 16 9"/><path d="M5 15h14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>接受对方块</button>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- 批量合并（对齐 JetBrains Merge Revisions 顶部栏）：
+             非冲突一键应用 + 方向选择器 + 行内高亮粒度 + 状态计数。
+             整组包 .merge-only：对照模式（body.compare-mode-compare）下整体 display:none，
+             仅合并模式可见（由 C1 切 body 类控制）。 -->
+        <div class="toolbar-group compare-merge-group merge-only">
+          <button class="compare-toolbar-btn compare-toolbar-btn-primary" id="btnApplyNonConflicting" title="一键应用所有不冲突的变更（冲突块保留给人工裁决）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>应用非冲突变更</button>
+          <div class="compare-dir-group" role="group" aria-label="批量接受方向">
+            <button class="compare-toolbar-btn compare-dir-btn" id="btnAcceptLeft" data-dir="left" title="采纳左侧全部块（本地 → 对方/合并结果）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="11 18 5 12 11 6"/></svg>◀ 左侧</button>
+            <button class="compare-toolbar-btn compare-dir-btn" id="btnAcceptAll" data-dir="all" title="两侧全部采纳（先左后右，右侧覆盖冲突处）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 12 7 17 17 7"/><polyline points="11 17 13 19 22 9"/></svg>全部</button>
+            <button class="compare-toolbar-btn compare-dir-btn" id="btnAcceptRight" data-dir="right" title="采纳右侧全部块（对方/合并结果 → 本地）">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>右侧 ▶</button>
+          </div>
+          <label class="compare-toolbar-field" for="selHighlightWords">
+            <span class="compare-toolbar-field-label">行内高亮</span>
+            <select class="compare-toolbar-select" id="selHighlightWords" title="行内字词级高亮粒度：关闭 / 按词 / 按字符">
+              <option value="off">关闭</option>
+              <option value="word" selected>按词</option>
+              <option value="char">按字符</option>
+            </select>
+          </label>
+          <span class="compare-status-count" id="compareStatusCount" title="当前差异块与冲突块数量">0 处变更，0 处冲突</span>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- 文件 / 保存 / 导出 -->
+        <div class="toolbar-group">
+          <button class="compare-toolbar-btn" id="btnPickFiles" title="选择要对比的两个文件">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>选择文件</button>
+          <button class="compare-toolbar-btn" id="btnSave" title="保存当前活动栏到其源文件 (Ctrl+S)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>保存</button>
+          <button class="compare-toolbar-btn" id="btnScroll" title="滚动同步：开启后多栏联动滚动（D16）">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>滚动同步</button>
+          <button class="compare-toolbar-btn" id="btnExportResult" title="把合并结果另存为新文件">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出结果</button>
+          <button class="compare-toolbar-btn" id="btnExportDiff" title="导出 Git 风格的 diff 文本报告">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 8v8"/><path d="M8 6h6a2 2 0 0 1 2 2v2"/><path d="M8 18h6a2 2 0 0 0 2-2v-2"/></svg>导出 diff</button>
+        </div>
+      </div>
+
+      <div class="toolbar-right">
+        <!-- 图片插入入口 -->
+        <button class="compare-toolbar-btn" id="btnAddImages" title="插入图片：选择图片并插入到当前活动栏的光标处">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>插入图片</button>
+      </div>
+    </header>
+
+    <main class="compare-main" id="compareRoot">
+      <!-- 文件选择区：A=本地，B=对方 -->
+      <section class="compare-files" id="compareFiles">
+        <div class="compare-file-slot" id="fileSlotA" data-slot="a">
+          <span class="compare-file-name">本地文件（未选择）</span>
+        </div>
+        <div class="compare-file-slot" id="fileSlotB" data-slot="b">
+          <span class="compare-file-name">对方文件（未选择）</span>
+        </div>
+      </section>
+
+      <!-- 图片拖拽区 -->
+      <section class="compare-image-drop" id="compareImageDrop">
+        将图片拖拽到此处，或点击右上角「图片」按钮选择；图片会以 Markdown 语法插入当前活动栏的光标处
+      </section>
+
+      <!-- 视图容器：两栏 / 三栏（对比/合并必为两栏或三栏，无单栏）
+           右侧 aside#locationPane 为「位置概览」侧栏（第三期），内容由
+           src/compare/location-pane.js 动态渲染；隐藏时加 hidden 属性。 -->
+      <section class="compare-views" id="compareViews">
+        <!-- #comparePanes 是「栏标题 + 编辑器」的纵向容器。
+             必须存在这一层包裹：.compare-views 本身是横向 flex（编辑区 | 位置概览侧栏），
+             若把标题栏直接放进去会被排成第四列。而 #viewTwo / #viewThree 在三栏下会被
+             compare-merge.js 加上 .compare-three-layout（flex-direction:row !important），
+             标题栏也不能塞进视图容器内部，否则会被排到编辑器左边。 -->
+        <div class="compare-panes" id="comparePanes">
+          <!-- per-pane 标题栏：勾选框 + 标题 + 关闭按钮，栏数与标题由 compare.js 按模式动态设置 -->
+          <div class="compare-view-header" id="compareViewHeader" hidden>
+            <div class="pane-header" data-pane="a">
+              <input type="checkbox" class="pane-header-toggle" id="paneToggleA" checked aria-label="显示 / 隐藏左栏" />
+              <span class="pane-header-title" id="paneTitleA">本地</span>
+              <button type="button" class="pane-header-close" data-pane="a" title="关闭该栏" aria-label="关闭左栏">×</button>
+            </div>
+            <div class="pane-header" data-pane="b">
+              <input type="checkbox" class="pane-header-toggle" id="paneToggleB" checked aria-label="显示 / 隐藏中栏" />
+              <span class="pane-header-title" id="paneTitleB">合并结果</span>
+              <button type="button" class="pane-header-close" data-pane="b" title="关闭该栏" aria-label="关闭中栏">×</button>
+            </div>
+            <div class="pane-header" data-pane="c">
+              <input type="checkbox" class="pane-header-toggle" id="paneToggleC" checked aria-label="显示 / 隐藏右栏" />
+              <span class="pane-header-title" id="paneTitleC">对方</span>
+              <button type="button" class="pane-header-close" data-pane="c" title="关闭该栏" aria-label="关闭右栏">×</button>
+            </div>
+          </div>
+          <div class="compare-view compare-view-two" id="viewTwo" hidden></div>
+          <!-- 三栏挂载容器：MergeView(a+b) + 动态生成的 B↔C 逐块采纳列 + 独立 theirsView(c)
+               均由 compare-merge.js 在 createCompareMergeView 内按序追加；两栏下整体 hidden。 -->
+          <div class="compare-view compare-view-three" id="viewThree" hidden></div>
+        </div>
+        <!-- 概览侧栏拖拽分隔条：拖动调整差异概览宽度（与编辑/预览分隔条一致的交互） -->
+        <div
+          class="compare-lp-resizer"
+          id="locationPaneResizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="拖动调整差异概览宽度"
+          title="拖动调整差异概览宽度（双击恢复默认）"
+          hidden
+        >
+          <div class="compare-lp-resizer-handle"></div>
+        </div>
+        <aside class="compare-location-pane" id="locationPane" aria-label="差异概览" hidden></aside>
+      </section>
+    </main>
+
+    <!-- 底部全局操作栏：仅保留「返回主界面」（D10 删除「应用」「放弃」） -->
+    <footer class="compare-footer" id="compareFooter">
+      <button type="button" class="compare-footer-btn compare-footer-back" id="btnBackToEditor" title="返回主界面编辑器（对比页关闭，主界面仍在）">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 5 12 11 7"/><line x1="5" y1="12" x2="19" y2="12"/></svg>返回主界面</button>
+    </footer>
+
+    <script type="module" src="./compare.js"></script>
+  </body>
+</html>

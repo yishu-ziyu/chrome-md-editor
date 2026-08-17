@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Markdown 编辑器</title>
+    <!-- Tauri 生产环境窗口入口显式配置为 src/index.html（Vite 把 HTML 输出在 dist/src/ 下，
+         故不能用默认的 frontendDist 根 index.html），这里重定向到真正的入口 editor.html -->
+    <script>
+      location.replace("./editor.html");
+    </script>
+  </head>
+  <body></body>
+</html>

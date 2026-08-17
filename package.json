@@ -1,6 +1,6 @@
 {
   "name": "chrome-md-editor",
-  "version": "1.4.2",
+  "version": "1.9.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,10 +16,18 @@
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.1",
     "@codemirror/language-data": "^6.5.1",
+    "@codemirror/merge": "^6.12.1",
     "@codemirror/state": "^6.5.1",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.36.4",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-shell": "^2.2.1",
     "codemirror": "^6.0.1",
+    "diff": "^7.0.0",
+    "dompurify": "^3.4.12",
+    "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.0",
     "mermaid": "^11.12.3"
   },
