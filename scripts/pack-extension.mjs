@@ -17,6 +17,7 @@ if (!existsSync(manifest)) {
 
 const zipPath = resolve(root, zipName);
 execSync(`rm -f ${JSON.stringify(zipPath)}`, { cwd: root, stdio: "inherit" });
-// Nested dist/ so README "select dist folder" remains correct after unzip
-execSync(`zip -r ${JSON.stringify(zipName)} dist`, { cwd: root, stdio: "inherit" });
+// 扁平打包：把 dist/ 的内容直接压到 zip 根（manifest.json 在压缩包根目录），
+// 解压后即得到扩展根目录，可在 chrome://extensions → 加载已解压的扩展 直接安装。
+execSync(`cd dist && zip -r ${JSON.stringify("../" + zipName)} .`, { cwd: root, stdio: "inherit" });
 console.log(`Packed ${zipName}`);

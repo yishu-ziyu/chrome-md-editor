@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { parseHTML } from 'linkedom';
 
 import { resolvePreviewImageSource } from '../src/image-support.js';
@@ -71,8 +71,8 @@ test('Issue #1 Q1: real fixture path pattern matches file URL layout', () => {
   });
   assert.ok(resolved.startsWith('file://'));
   assert.ok(resolved.includes('images/dot.png') || resolved.endsWith('images/dot.png'));
-  // file should exist at decoded path
-  const decoded = decodeURIComponent(resolved.replace(/^file:\/\//, ''));
+  // file should exist at decoded path（用标准 API 还原文件系统路径，避免 Windows 双盘符）
+  const decoded = fileURLToPath(resolved);
   assert.equal(readFileSync(decoded).length > 0, true);
 });
 
@@ -167,7 +167,8 @@ test('Issue #3: editor URL carries instance id', () => {
 
 test('Issue #3: mark / center / font / sup / sub survive html→md round-trip', () => {
   const samples = [
-    ['<p><mark>important</mark></p>', ['<mark>important</mark>']],
+    // 高亮语法新增可逆 DOM：<mark>x</mark> → ==x==（不再保留 <mark> 标签）
+    ['<p><mark>important</mark></p>', ['==important==']],
     // <b> may become **bold** markdown — center tag itself must remain
     ['<p><center><b>title</b></center></p>', ['<center>', 'title', '</center>']],
     ['<p><font color="red">红</font></p>', ['<font color="red">红</font>']],
@@ -185,19 +186,41 @@ test('Issue #3: mark / center / font / sup / sub survive html→md round-trip', 
   }
 });
 
-test('Issue #3 product taste: no jarring style-preset toolbar; clean highlight + help exist', () => {
+test('Issue #3: jarring style-preset banned, but clean style toolbar restored', () => {
   const html = readFileSync(new URL('../src/editor.html', import.meta.url), 'utf8');
   // Explicitly removed: 居粗/居红/仿宋字号等违和预设
   for (const id of [
     'btnCenterBold',
     'btnCenterBoldRed',
-    'btnFontSize',
     'styleGroup',
   ]) {
     assert.equal(html.includes(`id="${id}"`), false, `style control should be gone: ${id}`);
   }
-  // Clean highlighter lives with B/I format tools (preview selection, not HTML chip wall)
-  assert.ok(html.includes('id="btnHighlight"'), 'preview highlight control');
+  // v1.4.4 以规范图标按钮重建样式工具栏；v1.8.2 合并入格式化组消除重复加粗
+  // btnStyleBold 已由格式化组的 btnBold 统一替代（单一事实源）
+  // style-toolbar-group 独立容器已合并入 toolbar-group 格式化组
+  for (const id of ['btnStyleCenter','btnStyleHighlight','btnColor','btnFontSize']) {
+    assert.ok(html.includes('id="' + id + '"'), 'clean style toolbar button: ' + id);
+  }
+  // v1.8.2 新增：上传图片按钮 + 侧栏拖拽条
+  assert.ok(html.includes('id="btnImage"'), 'image upload button required');
+  assert.ok(html.includes('id="resizerSidebar"'), 'sidebar resizer required');
+  // v1.8.3 新增：多栏/对比合并入口按钮（问题 1 修复）
+  assert.ok(html.includes('id="btnCompare"'), 'compare/multi-column entry button required');
+  // 对比按钮须位于视图切换组（view-switch-group），与 Chrome 模式 / 工作区搜索并列
+  const viewGroupIdx = html.indexOf('view-switch-group');
+  const compareIdx = html.indexOf('id="btnCompare"');
+  assert.ok(
+    viewGroupIdx !== -1 && compareIdx !== -1 && compareIdx > viewGroupIdx,
+    'btnCompare must live inside the view-switch-group'
+  );
+  // v1.5.1：高亮按钮合并为一个（原格式化组的 btnHighlight 已并入样式组 btnStyleHighlight），
+  // 编辑区 / 预览区选中都走同一入口：源码包 <mark> + 预览同步渲染
+  assert.equal(
+    html.includes('id="btnHighlight"'),
+    false,
+    'duplicated highlight button must be merged into btnStyleHighlight'
+  );
   assert.ok(html.includes('id="btnHelp"'), 'help button required for 说明书');
 });
 
@@ -217,4 +240,29 @@ test('Issue #3: onboarding is a real user manual, not tip crumbs', () => {
   assert.match(ob, /多标签|多窗口/);
   assert.match(ob, /允许访问文件网址/);
   assert.match(ob, /loadExampleFile/);
+});
+
+// ─── Issue #4 (v1.8.3): 预览区实时 Markdown 渲染 → 编辑器同步往返 ────────────
+// 核心契约：用户在预览区输入含语法的字符串（如 **粗体**，显示），
+// 预览区渲染为富文本（<strong>），编辑器须同步回含语法的源码（**粗体**，显示）。
+// 本测试锁定「渲染产物 → htmlToMarkdown → 编辑器源码」这一回写链路的正确性。
+
+test('Issue #4: 渲染后的 <strong> 回写为 **语法**，且保留后续纯文本', () => {
+  const rendered = '<p><strong>这是测试文字</strong>，显示</p>';
+  const md = toMd(rendered);
+  assert.ok(md.includes('**这是测试文字**'), `应含 **这是测试文字**，实际: ${md}`);
+  assert.ok(md.includes('，显示'), `应保留「，显示」，实际: ${md}`);
+});
+
+test('Issue #4: 行内代码 `code` 渲染产物回写为 `code` 源码', () => {
+  const rendered = '<p>命令 <code>git status</code> 查看状态</p>';
+  const md = toMd(rendered);
+  assert.ok(md.includes('`git status`'), `应含 \`git status\`，实际: ${md}`);
+  assert.ok(md.includes('查看状态'), `应保留「查看状态」，实际: ${md}`);
+});
+
+test('Issue #4: 标题渲染产物回写为 # 标题源码', () => {
+  const rendered = '<h1>同步测试标题</h1>';
+  const md = toMd(rendered);
+  assert.match(md, /#\s+同步测试标题/);
 });

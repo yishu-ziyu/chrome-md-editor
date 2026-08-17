@@ -28,8 +28,47 @@ export const DEFAULT_TRANSLATE_SETTINGS = {
 const BLOCK_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, li, th, td';
 const SKIP_ANCESTOR = 'pre, code, .mermaid-diagram, .mermaid-error, .md-translation';
 
-/** In-memory cache: source text -> translation */
-const translationCache = new Map();
+/**
+ * 有上限的 LRU 缓存（近似）。
+ * 长会话 / 大文档反复翻译时，无限增长的 Map 会带来内存泄漏风险，
+ * 故限制最大条目数（默认 500）。超出时淘汰最久未访问的条目。
+ * 仅暴露 has/get/set/clear 接口，与旧的 Map 用法兼容。
+ */
+function createLRUCache(maxSize) {
+  const map = new Map();
+  return {
+    has(key) {
+      return map.has(key);
+    },
+    get(key) {
+      if (!map.has(key)) return undefined;
+      const value = map.get(key);
+      // 访问即刷新到最新（LRU 语义）
+      map.delete(key);
+      map.set(key, value);
+      return value;
+    },
+    set(key, value) {
+      if (map.has(key)) {
+        map.delete(key);
+      } else if (map.size >= maxSize) {
+        // 淘汰最久未访问（Map 迭代顺序即插入顺序，第一个即最旧）
+        const oldest = map.keys().next().value;
+        if (oldest !== undefined) map.delete(oldest);
+      }
+      map.set(key, value);
+    },
+    clear() {
+      map.clear();
+    },
+    get size() {
+      return map.size;
+    },
+  };
+}
+
+/** In-memory cache: source text -> translation（带上限 LRU，避免内存泄漏） */
+const translationCache = createLRUCache(500);
 
 function providerFromPresetKind(kind) {
   if (kind === 'deepl') return 'deepl';
@@ -60,6 +99,8 @@ export function normalizeTranslateSettings(raw) {
   const apiKey = String(raw.apiKey || '').trim();
   const targetLang =
     String(raw.targetLang || base.targetLang).trim() || base.targetLang;
+  // 可选源语言：用户显式选择时才配置；空字符串表示「自动检测」（不下发 source_lang）。
+  const sourceLang = String(raw.sourceLang || '').trim();
 
   let model = String(raw.model || '').trim();
   let baseUrl = String(raw.baseUrl || '').trim().replace(/\/+$/, '');
@@ -72,6 +113,7 @@ export function normalizeTranslateSettings(raw) {
       baseUrl: '',
       model: '',
       targetLang,
+      sourceLang,
       deeplEndpoint: preset.deeplEndpoint || 'free',
       useCustomEndpoint: false,
     };
@@ -93,9 +135,55 @@ export function normalizeTranslateSettings(raw) {
     baseUrl,
     model,
     targetLang,
+    sourceLang,
     deeplEndpoint: 'free',
     useCustomEndpoint: !!useCustomEndpoint,
   };
+}
+
+// ===========================================================================
+// 落盘混淆：翻译设置（含 apiKey）写入 localStorage / chrome.storage 时做轻量
+// 混淆，避免任何能读取该域存储的脚本直接窃取明文密钥。
+//
+// 注意：这是「防 casual 读取」而非强加密——固定 salt + base64，仅提高门槛，
+// 不抵御能读到源码/固定盐的定向攻击者。不引入任何外部依赖，浏览器与 Node
+// 均原生支持 TextEncoder / btoa。旧版明文数据（无 SALT 前缀）仍可正常读取，
+// 实现向后兼容的平滑迁移。
+// ===========================================================================
+const STORAGE_OBFUSCATION_PREFIX = 'md-tr-obf:';
+
+function _utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function _base64ToUtf8(b64) {
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/** 将待落盘字符串做轻量混淆（UTF-8 安全）。失败则原样返回，保证不丢数据。 */
+function obfuscateForStorage(str) {
+  try {
+    return STORAGE_OBFUSCATION_PREFIX + _utf8ToBase64(str);
+  } catch {
+    return str;
+  }
+}
+
+/** 反混淆；非本模块写入的内容（无前缀 / 解析失败）原样返回，向后兼容。 */
+function deobfuscateFromStorage(str) {
+  if (typeof str !== 'string' || !str.startsWith(STORAGE_OBFUSCATION_PREFIX)) {
+    return str;
+  }
+  try {
+    return _base64ToUtf8(str.slice(STORAGE_OBFUSCATION_PREFIX.length));
+  } catch {
+    return str;
+  }
 }
 
 export async function loadTranslateSettings() {
@@ -103,7 +191,9 @@ export async function loadTranslateSettings() {
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       const result = await chrome.storage.local.get(TRANSLATE_SETTINGS_KEY);
       if (result[TRANSLATE_SETTINGS_KEY]) {
-        return normalizeTranslateSettings(result[TRANSLATE_SETTINGS_KEY]);
+        return normalizeTranslateSettings(
+          JSON.parse(deobfuscateFromStorage(result[TRANSLATE_SETTINGS_KEY]))
+        );
       }
     }
   } catch {
@@ -111,7 +201,7 @@ export async function loadTranslateSettings() {
   }
   try {
     const raw = localStorage.getItem(TRANSLATE_SETTINGS_KEY);
-    if (raw) return normalizeTranslateSettings(JSON.parse(raw));
+    if (raw) return normalizeTranslateSettings(JSON.parse(deobfuscateFromStorage(raw)));
   } catch {
     // ignore
   }
@@ -120,15 +210,17 @@ export async function loadTranslateSettings() {
 
 export async function saveTranslateSettings(settings) {
   const normalized = normalizeTranslateSettings(settings);
+  // 含 apiKey 的设置在落盘前做轻量混淆，避免明文存储被直接读取。
+  const payload = obfuscateForStorage(JSON.stringify(normalized));
   try {
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      await chrome.storage.local.set({ [TRANSLATE_SETTINGS_KEY]: normalized });
+      await chrome.storage.local.set({ [TRANSLATE_SETTINGS_KEY]: payload });
     }
   } catch {
     // still try localStorage
   }
   try {
-    localStorage.setItem(TRANSLATE_SETTINGS_KEY, JSON.stringify(normalized));
+    localStorage.setItem(TRANSLATE_SETTINGS_KEY, payload);
   } catch {
     // ignore quota
   }
@@ -297,9 +389,24 @@ function chunkByCharBudget(texts, indexes, budget) {
  * host_permissions apply and CORS does not strip custom headers (x-api-key).
  * Falls back to global fetch in dev server / Node tests.
  */
-export async function extensionFetch(url, init = {}, { fetchImpl } = {}) {
+/**
+ * 统一超时包装：promise 在 ms 毫秒内未 settle 则 reject 超时错误，避免调用方永久 await。
+ * 任意路径（fetchImpl / 扩展后台代理 / 全局 fetch）挂起都能被超时中断，翻译 UI 不再卡死。
+ */
+function withTimeout(promise, ms, who) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${who}请求超时（>${ms}ms），请检查网络或重试`)),
+      ms
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+export async function extensionFetch(url, init = {}, { fetchImpl, timeoutMs = 15000 } = {}) {
   if (typeof fetchImpl === 'function') {
-    return fetchImpl(url, init);
+    return withTimeout(fetchImpl(url, init), timeoutMs, '翻译');
   }
 
   // Chrome extension page → background proxy (avoids CORS on Anthropic headers)
@@ -317,10 +424,14 @@ export async function extensionFetch(url, init = {}, { fetchImpl } = {}) {
 
     let response;
     try {
-      response = await chrome.runtime.sendMessage({
-        type: 'translate-fetch',
-        payload,
-      });
+      response = await withTimeout(
+        chrome.runtime.sendMessage({
+          type: 'translate-fetch',
+          payload,
+        }),
+        timeoutMs,
+        '扩展后台代理'
+      );
     } catch (err) {
       throw new Error(
         `扩展后台代理失败: ${err?.message || err}。请重新加载扩展后再试。`
@@ -351,7 +462,18 @@ export async function extensionFetch(url, init = {}, { fetchImpl } = {}) {
   if (typeof fetchFn !== 'function') {
     throw new Error('当前环境不支持网络请求');
   }
-  return fetchFn(url, init);
+  // 全局 fetch 路径：AbortController 真正中断底层连接 + withTimeout 提供友好超时文案
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await withTimeout(
+      fetchFn(url, { ...init, signal: init.signal || controller.signal }),
+      timeoutMs,
+      '翻译网络'
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function callTranslateApi(texts, settings, { fetchImpl } = {}) {
@@ -553,7 +675,12 @@ async function translateWithDeepL(texts, cfg, fetchFn) {
   const params = new URLSearchParams();
   texts.forEach((t) => params.append('text', t));
   params.set('target_lang', deeplTargetLang(cfg.targetLang));
-  params.set('source_lang', 'EN');
+  // 源语言：仅当用户显式配置 sourceLang 时才下发 source_lang，否则交由 DeepL
+  // 自动检测。原实现硬编码 'EN' 会导致「源语言非英文」或「源语言等同目标语言」
+  // 时被强制按英文理解，与界面「自动检测」预期不符。
+  if (cfg.sourceLang) {
+    params.set('source_lang', deeplSourceLang(cfg.sourceLang));
+  }
 
   const res = await fetchFn(url, {
     method: 'POST',
@@ -593,6 +720,16 @@ function deeplTargetLang(code) {
   if (c.startsWith('ko')) return 'KO';
   if (c.startsWith('en')) return 'EN-US';
   return 'ZH';
+}
+
+// DeepL 源语言代码与目标的差异：源语言用简码（如 EN / ZH），不支持 EN-US 这类区域变体。
+function deeplSourceLang(code) {
+  const c = String(code || '').toLowerCase();
+  if (c === 'zh' || c === 'zh-cn' || c === 'zh-hans' || c === 'zh-tw' || c === 'zh-hant') return 'ZH';
+  if (c.startsWith('ja')) return 'JA';
+  if (c.startsWith('ko')) return 'KO';
+  if (c.startsWith('en')) return 'EN';
+  return c.toUpperCase();
 }
 
 export function parseJsonStringArray(content, expectedLength) {
