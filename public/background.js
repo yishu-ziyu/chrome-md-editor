@@ -1,4 +1,4 @@
-// Service Worker - 管理编辑器标签页 + 拦截 .md 文件 + 翻译 API 代理
+// Service Worker - 打开编辑器标签页 + 翻译 API 代理
 
 // 生成唯一实例 ID，用于区分多个编辑器实例（避免 pendingFile 单键竞态）
 function newInstanceId() {
@@ -12,22 +12,106 @@ function newInstanceId() {
 // 翻译 API 代理
 // 扩展页 fetch 会走 CORS；service worker + host_permissions 不走 CORS，
 // 可发送 x-api-key / anthropic-version 等自定义头（MiniMax Anthropic 必需）。
+// Locked down: same-extension sender, POST, https + host_permissions origins only.
+// Keep TRANSLATE_ALLOWED_ORIGINS in sync with public/manifest.json host_permissions.
 // ==========================================
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+const TRANSLATE_ALLOWED_ORIGINS = new Set([
+  'https://api.openai.com',
+  'https://api.deepseek.com',
+  'https://api.moonshot.cn',
+  'https://api.moonshot.ai',
+  'https://dashscope.aliyuncs.com',
+  'https://open.bigmodel.cn',
+  'https://ark.cn-beijing.volces.com',
+  'https://api.minimax.chat',
+  'https://api.minimaxi.com',
+  'https://api.minimax.io',
+  'https://api.stepfun.com',
+  'https://generativelanguage.googleapis.com',
+  'https://api.groq.com',
+  'https://api.mistral.ai',
+  'https://openrouter.ai',
+  'https://api.siliconflow.cn',
+  'https://api.siliconflow.com',
+  'https://aihubmix.com',
+  'https://api.302.ai',
+  'https://oa.api2d.net',
+  'https://api.openai-proxy.org',
+  'https://api.together.xyz',
+  'https://api.fireworks.ai',
+  'https://api.deepl.com',
+  'https://api-free.deepl.com',
+]);
+
+const TRANSLATE_ALLOWED_HEADERS = new Set([
+  'content-type',
+  'authorization',
+  'x-api-key',
+  'anthropic-version',
+  'anthropic-dangerous-direct-browser-access',
+]);
+
+function pickAllowedHeaders(headers) {
+  const out = {};
+  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) return out;
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    if (TRANSLATE_ALLOWED_HEADERS.has(String(key).toLowerCase())) {
+      out[key] = String(value);
+    }
+  }
+  return out;
+}
+
+function parseAllowedTranslateUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return { ok: false, error: 'missing url' };
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, error: 'invalid url' };
+  }
+  if (parsed.protocol !== 'https:') {
+    return { ok: false, error: 'only https urls are allowed' };
+  }
+  if (!TRANSLATE_ALLOWED_ORIGINS.has(parsed.origin)) {
+    return { ok: false, error: 'origin not allowed' };
+  }
+  return { ok: true, url: parsed.href };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== 'translate-fetch') return false;
 
-  const { url, method, headers, body } = message.payload || {};
-  if (!url || typeof url !== 'string') {
-    sendResponse({ ok: false, status: 0, error: 'missing url' });
+  if (!sender || sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, status: 0, error: 'forbidden sender' });
     return false;
   }
 
+  const payload = message.payload || {};
+  const method = String(payload.method || '').toUpperCase();
+  if (method !== 'POST') {
+    sendResponse({ ok: false, status: 0, error: 'only POST is allowed' });
+    return false;
+  }
+
+  const parsed = parseAllowedTranslateUrl(payload.url);
+  if (!parsed.ok) {
+    sendResponse({ ok: false, status: 0, error: parsed.error });
+    return false;
+  }
+
+  const headers = pickAllowedHeaders(payload.headers);
+  const body = payload.body == null ? undefined : String(payload.body);
+
   (async () => {
     try {
-      const res = await fetch(url, {
-        method: method || 'POST',
-        headers: headers || {},
-        body: body ?? undefined,
+      const res = await fetch(parsed.url, {
+        method: 'POST',
+        headers,
+        body,
       });
       const text = await res.text();
       sendResponse({
@@ -41,7 +125,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       // Surface a clearer hint when host permission / network is the real issue
       const hint =
         /Failed to fetch|NetworkError|ERR_/i.test(raw)
-          ? `${raw}（请确认已重新加载扩展 v1.4.2+，且目标域名在 host_permissions 中）`
+          ? `${raw}（请确认已重新加载扩展 v1.4.3+，且目标域名在 host_permissions 中）`
           : raw;
       sendResponse({
         ok: false,
@@ -61,52 +145,4 @@ chrome.action.onClicked.addListener(async () => {
   await chrome.tabs.create({
     url: chrome.runtime.getURL('src/editor.html') + '?i=' + newInstanceId(),
   });
-});
-
-// ==========================================
-// 方案 B：通过 tabs.onUpdated 拦截 .md 文件
-// 当 content script 不生效时作为备用
-// ==========================================
-const MD_EXTENSIONS = /\.(md|markdown|mdown|mkd|mkdn)(\?.*)?$/i;
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // 只处理 file:// 协议的 .md 文件加载完成时
-  if (changeInfo.status !== 'complete') return;
-  if (!tab.url || !tab.url.startsWith('file://')) return;
-  if (!MD_EXTENSIONS.test(tab.url)) return;
-
-  try {
-    // 注入脚本读取页面内容
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tabId },
-      func: () => {
-        return document.body.innerText || document.body.textContent || '';
-      },
-    });
-
-    const content = results?.[0]?.result;
-    if (!content || !content.trim()) return;
-
-    // 从 URL 中提取文件名
-    const decodedUrl = decodeURIComponent(tab.url);
-    const filename = decodedUrl.split('/').pop() || 'untitled.md';
-
-    // 用「每个实例独立」的 storage 键，避免多个 .md 同时打开时相互覆盖
-    const instanceId = newInstanceId();
-    await chrome.storage.local.set({
-      ['pendingFile_' + instanceId]: {
-        content: content,
-        filename: filename,
-        sourceUrl: tab.url,
-        timestamp: Date.now(),
-      },
-    });
-
-    // 重定向到编辑器（携带实例 ID，使该标签页精确加载对应文件）
-    await chrome.tabs.update(tabId, {
-      url: chrome.runtime.getURL('src/editor.html') + '?i=' + instanceId,
-    });
-  } catch (err) {
-    console.warn('[MD Editor] 拦截 .md 文件失败:', err);
-  }
 });

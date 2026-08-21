@@ -310,7 +310,7 @@ export async function extensionFetch(url, init = {}, { fetchImpl } = {}) {
   ) {
     const payload = {
       url: String(url),
-      method: init.method || 'GET',
+      method: init.method || 'POST',
       headers: init.headers || {},
       body: init.body != null ? String(init.body) : undefined,
     };
@@ -710,8 +710,8 @@ export function getTranslateApiOrigin(settings) {
  * Never call chrome.permissions.request from this module.
  * Preset hosts are covered by manifest host_permissions; network calls go
  * through the service-worker translate-fetch proxy. Custom OneAPI hosts
- * should be listed in host_permissions or optional_host_permissions at
- * install time — runtime request() after async gaps causes false failures.
+ * should be listed in host_permissions at install time — runtime request()
+ * after async gaps causes false failures.
  */
 export async function ensureTranslateHostPermission(settings) {
   try {

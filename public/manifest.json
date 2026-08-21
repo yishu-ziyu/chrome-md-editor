@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Markdown Editor",
   "description": "本地 Markdown 编辑器 - 在浏览器中查看和编辑 Markdown 文件",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -21,9 +21,7 @@
     "type": "module"
   },
   "permissions": [
-    "storage",
-    "scripting",
-    "tabs"
+    "storage"
   ],
   "host_permissions": [
     "https://api.openai.com/*",
@@ -52,10 +50,6 @@
     "https://api.deepl.com/*",
     "https://api-free.deepl.com/*"
   ],
-  "optional_host_permissions": [
-    "https://*/*",
-    "http://*/*"
-  ],
   "content_scripts": [
     {
       "matches": [
@@ -83,5 +77,8 @@
         "file:///*"
       ]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src 'none'"
+  }
 }

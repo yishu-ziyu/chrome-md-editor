@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 Format based on Keep a Changelog.
 Project uses Semantic Versioning.
 
+## [1.4.3] - 2026-08-21
+
+### Security
+
+- Sanitize preview HTML with DOMPurify; keep limited tags (`mark`, `center`, `font`, `span`, `sup`, `sub`)
+- Mermaid `securityLevel: 'strict'` and sanitize rendered SVG before insert
+- File tree names use `textContent` (no HTML interpolation)
+- Strip event handlers / `javascript:` from html→md raw-tag round-trip
+- Lock down translate-fetch SW proxy: same-extension sender, POST, https + host_permissions origins, header allowlist
+- Drop `scripting` / `tabs` / `optional_host_permissions`; add extension_pages CSP
+- Reject `javascript:` / `vbscript:` / `chrome:` image sources
+
 ## [1.4.2] - 2026-07-14
 
 ### Added

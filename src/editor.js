@@ -14,6 +14,7 @@ import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { lintKeymap } from '@codemirror/lint';
 import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 import {
   buildImagesRelativePath,
   buildPastedImageMarkdown,
@@ -43,7 +44,7 @@ import {
 } from './translate.js';
 
 /** Visible build stamp so we can tell if Chrome reloaded the new package. */
-export const APP_VERSION = '1.4.2';
+export const APP_VERSION = '1.4.3';
 import {
   getPresetDefaultModel,
   getTranslatePreset,
@@ -56,9 +57,55 @@ import {
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
-  securityLevel: 'loose',
-  fontFamily: 'Inter, sans-serif',
+  securityLevel: 'strict',
+  fontFamily: 'sans-serif',
 });
+
+const PREVIEW_PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'del', 'code', 'pre',
+    'blockquote', 'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'hr', 'a', 'img',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'mark', 'center', 'font', 'span', 'sup', 'sub',
+    'div',
+    'input',
+  ],
+  ALLOWED_ATTR: [
+    'href', 'src', 'alt', 'title', 'class',
+    'color', 'face', 'size',
+    'colspan', 'rowspan', 'align',
+    'type', 'disabled', 'checked',
+  ],
+  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'link', 'meta'],
+  FORBID_ATTR: ['style'],
+  ALLOW_DATA_ATTR: false,
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data|blob|chrome-extension|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+};
+
+DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+  if (data.attrName !== 'href') return;
+  const v = String(data.attrValue || '').trim().toLowerCase();
+  if (
+    v.startsWith('javascript:') ||
+    v.startsWith('vbscript:') ||
+    v.startsWith('data:') ||
+    v.startsWith('blob:')
+  ) {
+    data.keepAttr = false;
+  }
+});
+
+function sanitizePreviewHtml(html) {
+  return DOMPurify.sanitize(html, PREVIEW_PURIFY_CONFIG);
+}
+
+function sanitizeMermaidSvg(svg) {
+  return DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } });
+}
 
 // ==========================================
 // Markdown-it 初始化
@@ -314,7 +361,7 @@ function updatePreview() {
 async function doUpdatePreview() {
   const previewContainer = document.getElementById('previewContainer');
   const content = editor.state.doc.toString();
-  let html = md.render(content);
+  let html = sanitizePreviewHtml(md.render(content));
 
   // 渲染 Mermaid 图表
   // markdown-it 会把 ```mermaid 渲染成 <pre><code class="language-mermaid">...</code></pre>
@@ -331,7 +378,7 @@ async function doUpdatePreview() {
       const { svg } = await mermaid.render(`mermaid-${mermaidCounter}`, source);
       const div = document.createElement('div');
       div.className = 'mermaid-diagram';
-      div.innerHTML = svg;
+      div.innerHTML = sanitizeMermaidSvg(svg);
       pre.replaceWith(div);
     } catch (err) {
       // 渲染失败时显示错误
@@ -1327,8 +1374,8 @@ function toggleTheme() {
   mermaid.initialize({
     startOnLoad: false,
     theme: currentTheme === 'dark' ? 'dark' : 'default',
-    securityLevel: 'loose',
-    fontFamily: 'Inter, sans-serif',
+    securityLevel: 'strict',
+    fontFamily: 'sans-serif',
   });
   // 重新渲染预览中的 Mermaid
   doUpdatePreview();
@@ -1805,19 +1852,27 @@ async function renderFileTree() {
     rootDiv.className = 'tree-item';
     rootDiv.style.fontWeight = '600';
     rootDiv.style.paddingLeft = '8px';
-    rootDiv.innerHTML = `
-      <span class="tree-item-icon">
+
+    const rootIcon = document.createElement('span');
+    rootIcon.className = 'tree-item-icon';
+    rootIcon.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
-      </span>
-      <span class="tree-item-name">${directoryHandle.name}</span>
     `;
+    const rootName = document.createElement('span');
+    rootName.className = 'tree-item-name';
+    rootName.textContent = directoryHandle.name;
+    rootDiv.append(rootIcon, rootName);
     container.appendChild(rootDiv);
 
     renderTreeEntries(container, entries, 1);
   } catch (err) {
-    container.innerHTML = `<div style="padding:12px;color:var(--danger);font-size:12px;">${err.message}</div>`;
+    container.replaceChildren();
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'padding:12px;color:var(--danger);font-size:12px;';
+    errorDiv.textContent = err.message || String(err);
+    container.appendChild(errorDiv);
   }
 }
 
@@ -1836,10 +1891,19 @@ function renderDirectoryNode(parent, entry, depth) {
   itemDiv.className = 'tree-item';
   itemDiv.style.paddingLeft = `${depth * 16 + 8}px`;
 
-  const chevron = `<span class="tree-item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,6 15,12 9,18"/></svg></span>`;
-  const icon = `<span class="tree-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>`;
+  const chevronEl = document.createElement('span');
+  chevronEl.className = 'tree-item-chevron';
+  chevronEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,6 15,12 9,18"/></svg>`;
 
-  itemDiv.innerHTML = `${chevron}${icon}<span class="tree-item-name">${entry.name}</span>`;
+  const iconEl = document.createElement('span');
+  iconEl.className = 'tree-item-icon';
+  iconEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'tree-item-name';
+  nameEl.textContent = entry.name;
+
+  itemDiv.append(chevronEl, iconEl, nameEl);
 
   // 子节点容器
   const childrenDiv = document.createElement('div');
@@ -1852,8 +1916,8 @@ function renderDirectoryNode(parent, entry, depth) {
   // 点击展开/折叠
   itemDiv.addEventListener('click', (e) => {
     e.stopPropagation();
-    const chevronEl = itemDiv.querySelector('.tree-item-chevron');
-    chevronEl.classList.toggle('expanded');
+    const chevron = itemDiv.querySelector('.tree-item-chevron');
+    chevron.classList.toggle('expanded');
     childrenDiv.classList.toggle('expanded');
   });
 
@@ -1868,11 +1932,17 @@ function renderFileNode(parent, entry, depth) {
 
   const isMarkdown = /\.(md|markdown|mdown|mkd|mkdn|txt)$/i.test(entry.name);
   const iconColor = isMarkdown ? 'var(--accent)' : 'var(--text-muted)';
-  const icon = isMarkdown
-    ? `<span class="tree-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg></span>`
-    : `<span class="tree-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg></span>`;
+  const iconEl = document.createElement('span');
+  iconEl.className = 'tree-item-icon';
+  iconEl.innerHTML = isMarkdown
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>`;
 
-  itemDiv.innerHTML = `${icon}<span class="tree-item-name">${entry.name}</span>`;
+  const nameEl = document.createElement('span');
+  nameEl.className = 'tree-item-name';
+  nameEl.textContent = entry.name;
+
+  itemDiv.append(iconEl, nameEl);
 
   if (isMarkdown) {
     itemDiv.addEventListener('click', async (e) => {
@@ -1984,8 +2054,8 @@ function init() {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
-      securityLevel: 'loose',
-      fontFamily: 'Inter, sans-serif',
+      securityLevel: 'strict',
+      fontFamily: 'sans-serif',
     });
   }
   updateThemeIcon();
