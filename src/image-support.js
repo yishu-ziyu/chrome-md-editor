@@ -1,9 +1,20 @@
-const DIRECT_URL_PATTERN = /^(https?:|data:|blob:|chrome-extension:|file:\/\/)/i;
-const SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
+const ALLOWED_IMAGE_SCHEMES = new Set([
+  'https',
+  'http',
+  'data',
+  'blob',
+  'chrome-extension',
+  'file',
+]);
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[a-zA-Z]:[\\/]/;
 
 function normalizeSlashes(value) {
   return String(value || '').replace(/\\/g, '/');
+}
+
+function schemeOf(value) {
+  const m = String(value || '').match(/^([a-zA-Z][a-zA-Z\d+\-.]*):/);
+  return m ? m[1].toLowerCase() : '';
 }
 
 function normalizeRelativePath(path) {
@@ -60,8 +71,12 @@ export function resolvePreviewImageSource(src, context = {}) {
   if (!trimmed) return null;
 
   const normalized = normalizeSlashes(trimmed);
+  const scheme = schemeOf(normalized);
 
-  if (DIRECT_URL_PATTERN.test(normalized)) {
+  if (scheme) {
+    if (!ALLOWED_IMAGE_SCHEMES.has(scheme)) {
+      return null;
+    }
     return normalized;
   }
 
@@ -71,10 +86,6 @@ export function resolvePreviewImageSource(src, context = {}) {
 
   if (WINDOWS_ABSOLUTE_PATH_PATTERN.test(normalized)) {
     return toFileUrl(normalized);
-  }
-
-  if (SCHEME_PATTERN.test(normalized)) {
-    return normalized;
   }
 
   if (context.currentFileUrl) {

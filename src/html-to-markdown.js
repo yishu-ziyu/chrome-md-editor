@@ -9,13 +9,39 @@ export function normalizeMarkdown(md) {
     .trim();
 }
 
+const RAW_TAG_ALLOWLIST = new Set(['mark', 'center', 'font', 'span', 'sup', 'sub']);
+const RAW_ATTR_ALLOWLIST = new Set(['class', 'color', 'face', 'size']);
+
+function escapeAttrValue(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function isDangerousAttrValue(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return /^(?:javascript|vbscript|data\s*:?\s*text\/html)\s*:/.test(v);
+}
+
 export function reconstructRawTag(node, convertNodeFn) {
   const convert = convertNodeFn || convertNode;
-  const tag = node.tagName.toLowerCase();
-  const attrs = Array.from(node.attributes || [])
-    .map((a) => ` ${a.name}="${a.value}"`)
-    .join('');
+  const tag = String(node.tagName || '').toLowerCase();
   const childText = Array.from(node.childNodes).map(convert).join('');
+  if (!RAW_TAG_ALLOWLIST.has(tag)) return childText;
+
+  const attrs = Array.from(node.attributes || [])
+    .filter((a) => {
+      const name = String(a.name || '').toLowerCase();
+      if (name.startsWith('on')) return false;
+      if (name === 'style' || name === 'href') return false;
+      if (!RAW_ATTR_ALLOWLIST.has(name)) return false;
+      if (isDangerousAttrValue(a.value)) return false;
+      return true;
+    })
+    .map((a) => ` ${String(a.name).toLowerCase()}="${escapeAttrValue(a.value)}"`)
+    .join('');
   return `<${tag}${attrs}>${childText}</${tag}>`;
 }
 

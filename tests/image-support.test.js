@@ -18,6 +18,16 @@ test('resolvePreviewImageSource keeps remote and data urls unchanged', () => {
   );
 });
 
+test('resolvePreviewImageSource rejects javascript/vbscript/chrome schemes', () => {
+  assert.equal(resolvePreviewImageSource('javascript:alert(1)', {}), null);
+  assert.equal(resolvePreviewImageSource('vbscript:msgbox(1)', {}), null);
+  assert.equal(resolvePreviewImageSource('chrome://settings', {}), null);
+  assert.equal(
+    resolvePreviewImageSource('chrome-extension://abc/icon.png', {}),
+    'chrome-extension://abc/icon.png'
+  );
+});
+
 test('resolvePreviewImageSource resolves relative path against file url context', () => {
   assert.equal(
     resolvePreviewImageSource('../assets/demo.png', {

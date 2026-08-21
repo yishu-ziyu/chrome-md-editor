@@ -185,6 +185,21 @@ test('Issue #3: mark / center / font / sup / sub survive html→md round-trip', 
   }
 });
 
+test('Issue #3: html→md strips event handlers, style, and javascript URLs from raw tags', () => {
+  const withClick = toMd('<p><span onclick="alert(1)" class="keep">ok</span></p>');
+  assert.equal(withClick.includes('onclick'), false);
+  assert.ok(withClick.includes('<span class="keep">ok</span>'), withClick);
+
+  const withStyle = toMd('<p><font color="red" style="color:red" onerror="alert(1)">红</font></p>');
+  assert.equal(/onerror/i.test(withStyle), false);
+  assert.equal(withStyle.includes('style='), false);
+  assert.ok(withStyle.includes('<font color="red">红</font>'), withStyle);
+
+  const withJs = toMd('<p><span href="javascript:alert(1)">x</span></p>');
+  assert.equal(/javascript:/i.test(withJs), false);
+  assert.ok(withJs.includes('<span>x</span>'), withJs);
+});
+
 test('Issue #3 product taste: no jarring style-preset toolbar; clean highlight + help exist', () => {
   const html = readFileSync(new URL('../src/editor.html', import.meta.url), 'utf8');
   // Explicitly removed: 居粗/居红/仿宋字号等违和预设
@@ -205,9 +220,28 @@ test('Issue #3: background opens multi-instance URLs (source contract)', () => {
   const bg = readFileSync(new URL('../public/background.js', import.meta.url), 'utf8');
   assert.match(bg, /newInstanceId/);
   assert.match(bg, /\?i=/);
-  assert.match(bg, /pendingFile_/);
+  // file:// .md is handled by the content script, not tabs.onUpdated / scripting
+  assert.doesNotMatch(bg, /tabs\.onUpdated/);
+  assert.doesNotMatch(bg, /scripting\.executeScript/);
   // must NOT reuse single tab only
   assert.doesNotMatch(bg, /tabs\.query\(\s*\{\s*url:\s*chrome\.runtime\.getURL\('src\/editor\.html'\)/);
+
+  const cs = readFileSync(new URL('../public/content-script.js', import.meta.url), 'utf8');
+  assert.match(cs, /pendingFile_/);
+});
+
+test('Issue #3: translate-fetch proxy is origin/method/header locked (source contract)', () => {
+  const bg = readFileSync(new URL('../public/background.js', import.meta.url), 'utf8');
+  assert.match(bg, /sender\.id !== chrome\.runtime\.id/);
+  assert.match(bg, /only POST is allowed/);
+  assert.match(bg, /only https urls are allowed/);
+  assert.match(bg, /TRANSLATE_ALLOWED_ORIGINS/);
+  assert.match(bg, /anthropic-dangerous-direct-browser-access/);
+  const manifest = readFileSync(new URL('../public/manifest.json', import.meta.url), 'utf8');
+  assert.doesNotMatch(manifest, /"scripting"/);
+  assert.doesNotMatch(manifest, /optional_host_permissions/);
+  assert.doesNotMatch(manifest, /https:\/\/\*\/\*/);
+  assert.match(manifest, /script-src 'self'/);
 });
 
 test('Issue #3: onboarding is a real user manual, not tip crumbs', () => {
