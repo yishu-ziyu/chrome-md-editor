@@ -220,8 +220,78 @@ function loadExampleFile() {
 
 ## 再次打开时
 
-扩展会尽量恢复你**上次编辑的正文和文件名**。  
+扩展会尽量恢复你**上次编辑的正文和文件名**。
 受 Chrome 安全限制，无法永久记住磁盘文件句柄，所以恢复后保存时，有时需要重新选一次保存位置。
+
+## 支持的 Markdown 语法
+
+**粗体文本**  _斜体文本_  ~~删除线~~  \`行内代码\`
+
+<center>单行文字居中</center>
+
+<center>
+第一行文字居中<br>
+第二行文字居中<br>
+第三行文字居中
+</center>
+
+<center><b>单行居中且加粗</b></center>
+或者
+<center><strong>单行居中且加粗</strong></center>
+
+<center><b><font color="red">单行居中、加粗、红色</font></b></center>
+或者
+<center><b><span style="color: red;">单行居中、加粗、红色</span></b></center>
+又或者
+<center><strong><span style="color: blue;">单行居中、加粗、蓝色</span></strong></center>
+
+### 文本高亮
+
+使用HTML 标记实现 <mark>文本高亮 </mark>显示。
+使用HTML 标记实现 <mark>**文本高亮+加粗** </mark>显示。
+
+### 字体、颜色、大小
+
+<font face="仿宋">这是宋体</font>
+<font face="楷体">这是楷体</font>
+<font face="仿宋" color=red>这是红色宋体</font>
+<font face="楷体" color="blue">这是蓝色楷体</font>
+<font face="仿宋" color=red size=4>这是红色4号宋体</font>
+<font face="楷体" color="blue" size=5>这是蓝色5号楷体</font>
+
+<small>这是比默认字号小一号的文本</small>
+
+这是默认字号文本
+
+<big>这是比默认字号大一号的文本</big>
+
+### 列表
+
+- 无序列表项 1
+- 无序列表项 2
+  - 嵌套列表项
+
+1. 有序列表项 1
+2. 有序列表项 2
+  2.1. 镶套有序列表项 2.1
+   - 镶套无序列表项 2.2
+
+### 任务列表
+
+- [x] 已完成任务
+- [ ] 未完成任务
+
+### 引用
+
+> 这是一段引用文本。
+> 支持多行引用。
+> #### 包含其他元素的引用
+> - 包含其他元素的引用
+> **包含其他元素的引用**
+>> 这是嵌套引用文本。
+
+- 这是一个无序列表项
+    > 4个空格后加\>是引用
 
 ## Mermaid 图
 
@@ -241,7 +311,7 @@ graph LR
 
 ---
 
-随时点工具栏右侧 **?** 可重新打开本说明。  
+随时点工具栏右侧 **?** 可重新打开本说明。
 *这份示例本身就是 Markdown，你可以随意改。*
 `;
 
