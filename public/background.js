@@ -79,13 +79,28 @@ function parseAllowedTranslateUrl(url) {
   if (!TRANSLATE_ALLOWED_ORIGINS.has(parsed.origin)) {
     return { ok: false, error: 'origin not allowed' };
   }
+  if (parsed.username || parsed.password) {
+    return { ok: false, error: 'url credentials not allowed' };
+  }
   return { ok: true, url: parsed.href };
+}
+
+function isEditorSender(sender) {
+  if (!sender || sender.id !== chrome.runtime.id) return false;
+  try {
+    const url = new URL(sender.url);
+    url.search = '';
+    url.hash = '';
+    return url.href === chrome.runtime.getURL('src/editor.html');
+  } catch {
+    return false;
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.type !== 'translate-fetch') return false;
 
-  if (!sender || sender.id !== chrome.runtime.id) {
+  if (!isEditorSender(sender)) {
     sendResponse({ ok: false, status: 0, error: 'forbidden sender' });
     return false;
   }
@@ -112,6 +127,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         method: 'POST',
         headers,
         body,
+        redirect: 'error',
+        credentials: 'omit',
       });
       const text = await res.text();
       sendResponse({

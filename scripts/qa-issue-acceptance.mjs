@@ -36,7 +36,9 @@ const checks = [
 
 const bg = readFileSync(resolve(root, 'dist/background.js'), 'utf8');
 const editorHtml = readFileSync(resolve(root, 'dist/src/editor.html'), 'utf8');
-checks.push(['built background multi-instance', bg.includes('pendingFile_') && bg.includes('?i=')]);
+checks.push(['built background multi-instance', bg.includes('?i=')]);
+const contentScript = readFileSync(resolve(root, 'dist/content-script.js'), 'utf8');
+checks.push(['built content-script per-instance file handoff', contentScript.includes('pendingFile_')]);
 checks.push(['built help button', editorHtml.includes('btnHelp')]);
 checks.push(['no styleGroup toolbar', !editorHtml.includes('styleGroup')]);
 
