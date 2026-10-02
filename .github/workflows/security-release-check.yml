@@ -1,6 +1,8 @@
 name: Security release checks
 
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

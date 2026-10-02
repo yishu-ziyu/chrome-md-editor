@@ -7,8 +7,9 @@ publishing a release. Do not close #26 until the verified ZIP is publicly availa
 ## Verify and build
 
 1. Run the Security release checks workflow for the exact reviewed commit.
-   PR runs build GitHub's merge revision; after merge, manually run it on main
-   and use that successful run's artifact for publication.
+   PR runs build GitHub's merge revision; merging to main automatically runs
+   it again. Use the successful main run's artifact for publication. Manual
+   workflow dispatch on main is available if a rebuild is required.
 2. Require a clean dependency audit, all unit tests, browser security smoke checks, build, ZIP integrity,
    manifest security checks and version consistency to pass.
 3. Download `verified-extension-<sha>` from that run. Keep the ZIP,
