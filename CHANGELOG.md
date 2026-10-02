@@ -9,6 +9,10 @@ Project uses Semantic Versioning.
 
 ### Security
 
+- Update locked DOMPurify, Markdown-it, Mermaid, Vite and affected transitive
+  dependencies; require a clean npm audit before producing release artifacts.
+- Restrict translation requests to the same-extension editor page; reject URL
+  credentials and redirects, and omit cookies.
 - Sanitize preview HTML with DOMPurify; keep limited tags (`mark`, `center`, `font`, `span`, `sup`, `sub`)
 - Mermaid `securityLevel: 'strict'` and sanitize rendered SVG before insert
 - File tree names use `textContent` (no HTML interpolation)

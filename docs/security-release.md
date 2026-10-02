@@ -9,7 +9,7 @@ publishing a release. Do not close #26 until the verified ZIP is publicly availa
 1. Run the Security release checks workflow for the exact reviewed commit.
    PR runs build GitHub's merge revision; after merge, manually run it on main
    and use that successful run's artifact for publication.
-2. Require all unit tests, browser security smoke checks, build, ZIP integrity,
+2. Require a clean dependency audit, all unit tests, browser security smoke checks, build, ZIP integrity,
    manifest security checks and version consistency to pass.
 3. Download `verified-extension-<sha>` from that run. Keep the ZIP,
    `SHA256SUMS`, and `BUILD-SOURCE.txt` together. Verify `sha256sum -c SHA256SUMS`.
@@ -43,6 +43,7 @@ and open a new one. Reloading old files alone does not install a security fix.
 
 ```bash
 npm ci
+npm audit --audit-level=low
 npm test
 npx playwright install chromium
 npm run pack
