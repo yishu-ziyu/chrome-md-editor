@@ -1,0 +1,46 @@
+name: Security release checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run qa:issues
+      - run: npx playwright install --with-deps chromium
+      - run: npm run pack
+      - run: node scripts/qa-security.mjs
+      - name: Check the actual ZIP and record its source
+        shell: bash
+        run: |
+          version=$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")
+          archive="chrome-md-editor-v${version}.zip"
+          unzip -t "$archive"
+          unzip -p "$archive" dist/manifest.json > /tmp/packed-manifest.json
+          node --input-type=module -e "import fs from 'node:fs'; import assert from 'node:assert/strict'; const pkg=JSON.parse(fs.readFileSync('package.json')); const manifest=JSON.parse(fs.readFileSync('/tmp/packed-manifest.json')); assert.equal(manifest.version,pkg.version); assert.equal(manifest.content_security_policy.extension_pages,\"script-src 'self'; object-src 'self'; frame-src 'none'\"); assert.deepEqual(manifest.permissions,['storage']);"
+          sha256sum "$archive" > SHA256SUMS
+          printf 'GitHub revision: %s\nCommit: %s\nRun: %s/%s/actions/runs/%s\n' "$GITHUB_SHA" "$(git rev-parse HEAD)" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > BUILD-SOURCE.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verified-extension-${{ github.sha }}
+          path: |
+            chrome-md-editor-v*.zip
+            SHA256SUMS
+            BUILD-SOURCE.txt
+          if-no-files-found: error
+          retention-days: 14

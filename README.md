@@ -3,8 +3,10 @@
 本地 Markdown 编辑器 Chrome 扩展。
 不上传文件、不依赖后端；在浏览器里直接打开、编辑、预览本地 `.md`。
 
-**当前版本：[v1.4.2](https://github.com/yishu-ziyu/chrome-md-editor/releases/tag/v1.4.2)**  
+**最新已发布版本：[v1.4.2](https://github.com/yishu-ziyu/chrome-md-editor/releases/tag/v1.4.2)**  
 **下载：** [chrome-md-editor-v1.4.2.zip](https://github.com/yishu-ziyu/chrome-md-editor/releases/download/v1.4.2/chrome-md-editor-v1.4.2.zip)  
+**安全更新待发布：源码 v1.4.3 已修复预览 XSS 和翻译代理边界，以上 v1.4.2 下载不包含修复。** 请先按下方开发步骤构建 v1.4.3；发布验收见 [安全发布清单](docs/security-release.md)。
+
 **许可：** [MIT](./LICENSE)
 
 [English](#english)
@@ -65,9 +67,11 @@
 
 ### 从旧版升级
 
-1. 在 `chrome://extensions/` 对该扩展点 **重新加载**。
-2. 关掉所有旧的编辑器标签，再新开一页。
-3. 确认左上角版本徽标与 Release 一致（当前应为 **v1.4.2**）。
+1. 下载新版本 ZIP，解压并用新文件替换已加载的 **`dist/`** 目录。
+2. 在 `chrome://extensions/` 对该扩展点 **重新加载**。
+3. 关掉所有旧的编辑器标签，再新开一页，确认版本徽标与所安装的包一致。
+
+仅重新加载旧目录不会安装新版安全修复。
 
 ---
 
@@ -120,6 +124,7 @@ npm run dev       # 仅 UI 调试用；无 chrome.* / 文件 API，不能代替�
 
 - 变更记录：[CHANGELOG.md](./CHANGELOG.md)
 - 开发过程：[DEVLOG.md](./DEVLOG.md)
+- 安全发布验收：[docs/security-release.md](./docs/security-release.md)
 
 ---
 
@@ -165,7 +170,9 @@ No upload for normal editing.
 3. Enable **Allow access to file URLs** in the extension details.
 4. Click the toolbar icon, or drag a `.md` file into Chrome.
 
-After upgrading: **Reload** the extension, close old editor tabs, open a new one.
+Security update: source v1.4.3 contains security fixes that are absent from the published v1.4.2 ZIP. Build from source until a verified release is available.
+
+After upgrading: replace the loaded `dist/` files with the new package, **Reload** the extension, close old editor tabs, open a new one.
 The toolbar should show the release version (currently **v1.4.2**).
 
 ### Features (short)
